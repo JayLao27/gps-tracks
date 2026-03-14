@@ -1,7 +1,9 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 
 export default function Login() {
+    const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -10,6 +12,7 @@ export default function Login() {
         if (email === 'test@example.com' && password === 'password') {
             Alert.alert('Login successful!');
             setError('');
+            router.replace('/dashboard' as never);
             return;
         }
 
@@ -17,13 +20,13 @@ export default function Login() {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.card}>
-                <Text style={styles.title}>Login</Text>
+        <View className="flex-1 items-center justify-center bg-gray-100 p-4">
+            <View className="w-full max-w-[420px] rounded-lg border border-gray-300 bg-white p-6">
+                <Text className="mb-4 text-2xl font-semibold">Login</Text>
 
-                <Text style={styles.label}>Email</Text>
+                <Text className="mb-1.5 text-sm">Email</Text>
                 <TextInput
-                    style={styles.input}
+                    className="mb-3.5 rounded-md border border-gray-300 px-3 py-2.5"
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"
@@ -31,71 +34,21 @@ export default function Login() {
                     placeholder="you@example.com"
                 />
 
-                <Text style={styles.label}>Password</Text>
+                <Text className="mb-1.5 text-sm">Password</Text>
                 <TextInput
-                    style={styles.input}
+                    className="mb-3.5 rounded-md border border-gray-300 px-3 py-2.5"
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry
                     placeholder="Enter password"
                 />
 
-                {!!error && <Text style={styles.error}>{error}</Text>}
+                {!!error && <Text className="mb-3 text-red-600">{error}</Text>}
 
-                <Pressable style={styles.button} onPress={handleSubmit}>
-                    <Text style={styles.buttonText}>Login</Text>
+                <Pressable className="items-center rounded-md bg-blue-500 py-3" onPress={handleSubmit}>
+                    <Text className="font-semibold text-white">Login</Text>
                 </Pressable>
             </View>
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 16,
-        backgroundColor: '#f5f5f5',
-    },
-    card: {
-        width: '100%',
-        maxWidth: 420,
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 8,
-        padding: 24,
-        backgroundColor: '#fff',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: '600',
-        marginBottom: 16,
-    },
-    label: {
-        fontSize: 14,
-        marginBottom: 6,
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginBottom: 14,
-    },
-    error: {
-        color: 'red',
-        marginBottom: 12,
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        borderRadius: 6,
-        paddingVertical: 12,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: '#fff',
-        fontWeight: '600',
-    },
-});
