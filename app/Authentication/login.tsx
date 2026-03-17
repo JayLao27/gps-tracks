@@ -1,23 +1,8 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { useLogin } from '@/hooks/Auth/useLogin';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 export default function Login() {
-    const router = useRouter();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-
-    const handleSubmit = () => {
-        if (email === 'test@example.com' && password === 'password') {
-            Alert.alert('Login successful!');
-            setError('');
-            router.replace('/dashboard' as never);
-            return;
-        }
-
-        setError('Invalid email or password');
-    };
+    const { email, setEmail, password, setPassword, error, handleSubmit } = useLogin();
 
     return (
         <View className="flex-1 items-center justify-center bg-gray-100 p-4">
