@@ -1,5 +1,5 @@
 import { useGoogleAuth } from '@/hooks/Auth/useGoogleAuth';
-import { useLogin } from '@/hooks/Auth/useLogin';
+import { useSignup } from '@/hooks/Auth/useSignup';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -9,20 +9,42 @@ import {
     KeyboardAvoidingView,
     Platform,
     Pressable,
+    ScrollView,
     Text,
     TextInput,
     View,
 } from 'react-native';
 
-export default function Login() {
+export default function Signup() {
     const router = useRouter();
-    const { email, setEmail, password, setPassword, error, handleSubmit } =
-        useLogin();
-    const { handleGoogleSignIn, loading: googleLoading, error: googleError } =
-        useGoogleAuth();
+    const {
+        name,
+        setName,
+        email,
+        setEmail,
+        password,
+        setPassword,
+        confirmPassword,
+        setConfirmPassword,
+        error,
+        loading,
+        handleSignup,
+    } = useSignup();
+    const {
+        handleGoogleSignIn,
+        loading: googleLoading,
+        error: googleError,
+    } = useGoogleAuth();
+
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    const [nameFocused, setNameFocused] = useState(false);
     const [emailFocused, setEmailFocused] = useState(false);
     const [passwordFocused, setPasswordFocused] = useState(false);
+    const [confirmFocused, setConfirmFocused] = useState(false);
+
+    const displayError = error || googleError;
 
     return (
         <LinearGradient
@@ -35,32 +57,66 @@ export default function Login() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 className="flex-1"
             >
-                <View className="flex-1 items-center justify-center px-6">
+                <ScrollView
+                    contentContainerStyle={{
+                        flexGrow: 1,
+                        justifyContent: 'center',
+                        paddingHorizontal: 24,
+                        paddingVertical: 48,
+                    }}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
                     {/* ── Branding Section ── */}
-                    <View className="mb-10 items-center">
+                    <View className="mb-8 items-center">
                         <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20">
-                            <Ionicons
-                                name="location"
-                                size={40}
-                                color="#34d399"
-                            />
+                            <Ionicons name="location" size={40} color="#34d399" />
                         </View>
                         <Text className="text-3xl font-bold tracking-wider text-white">
                             GPS Tracks
                         </Text>
                         <Text className="mt-1 text-sm tracking-wide text-slate-400">
-                            Track your location in real-time
+                            Start tracking your adventures
                         </Text>
                     </View>
 
-                    {/* ── Login Card ── */}
-                    <View className="w-full max-w-[400px] rounded-3xl border border-white/10 bg-white/5 p-7">
+                    {/* ── Signup Card ── */}
+                    <View className="w-full max-w-[400px] self-center rounded-3xl border border-white/10 bg-white/5 p-7">
                         <Text className="mb-1 text-xl font-bold text-white">
-                            Welcome back
+                            Create Account
                         </Text>
                         <Text className="mb-6 text-sm text-slate-400">
-                            Sign in to continue tracking
+                            Join and start recording your routes
                         </Text>
+
+                        {/* ── Name Input ── */}
+                        <View className="mb-4">
+                            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                                Full Name
+                            </Text>
+                            <View
+                                className={`flex-row items-center rounded-xl border px-4 py-3 ${
+                                    nameFocused
+                                        ? 'border-emerald-500 bg-white/10'
+                                        : 'border-white/10 bg-white/5'
+                                }`}
+                            >
+                                <Ionicons
+                                    name="person-outline"
+                                    size={18}
+                                    color={nameFocused ? '#34d399' : '#94a3b8'}
+                                />
+                                <TextInput
+                                    className="ml-3 flex-1 text-base text-white"
+                                    value={name}
+                                    onChangeText={setName}
+                                    placeholder="John Doe"
+                                    placeholderTextColor="#64748b"
+                                    onFocus={() => setNameFocused(true)}
+                                    onBlur={() => setNameFocused(false)}
+                                />
+                            </View>
+                        </View>
 
                         {/* ── Email Input ── */}
                         <View className="mb-4">
@@ -77,9 +133,7 @@ export default function Login() {
                                 <Ionicons
                                     name="mail-outline"
                                     size={18}
-                                    color={
-                                        emailFocused ? '#34d399' : '#94a3b8'
-                                    }
+                                    color={emailFocused ? '#34d399' : '#94a3b8'}
                                 />
                                 <TextInput
                                     className="ml-3 flex-1 text-base text-white"
@@ -110,24 +164,20 @@ export default function Login() {
                                 <Ionicons
                                     name="lock-closed-outline"
                                     size={18}
-                                    color={
-                                        passwordFocused ? '#34d399' : '#94a3b8'
-                                    }
+                                    color={passwordFocused ? '#34d399' : '#94a3b8'}
                                 />
                                 <TextInput
                                     className="ml-3 flex-1 text-base text-white"
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry={!showPassword}
-                                    placeholder="Enter password"
+                                    placeholder="Min. 6 characters"
                                     placeholderTextColor="#64748b"
                                     onFocus={() => setPasswordFocused(true)}
                                     onBlur={() => setPasswordFocused(false)}
                                 />
                                 <Pressable
-                                    onPress={() =>
-                                        setShowPassword(!showPassword)
-                                    }
+                                    onPress={() => setShowPassword(!showPassword)}
                                     hitSlop={8}
                                 >
                                     <Ionicons
@@ -143,15 +193,52 @@ export default function Login() {
                             </View>
                         </View>
 
-                        {/* ── Forgot Password ── */}
-                        <Pressable className="mb-5 self-end">
-                            <Text className="text-xs font-medium text-emerald-400">
-                                Forgot password?
+                        {/* ── Confirm Password Input ── */}
+                        <View className="mb-5">
+                            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                                Confirm Password
                             </Text>
-                        </Pressable>
+                            <View
+                                className={`flex-row items-center rounded-xl border px-4 py-3 ${
+                                    confirmFocused
+                                        ? 'border-emerald-500 bg-white/10'
+                                        : 'border-white/10 bg-white/5'
+                                }`}
+                            >
+                                <Ionicons
+                                    name="lock-closed-outline"
+                                    size={18}
+                                    color={confirmFocused ? '#34d399' : '#94a3b8'}
+                                />
+                                <TextInput
+                                    className="ml-3 flex-1 text-base text-white"
+                                    value={confirmPassword}
+                                    onChangeText={setConfirmPassword}
+                                    secureTextEntry={!showConfirm}
+                                    placeholder="Re-enter password"
+                                    placeholderTextColor="#64748b"
+                                    onFocus={() => setConfirmFocused(true)}
+                                    onBlur={() => setConfirmFocused(false)}
+                                />
+                                <Pressable
+                                    onPress={() => setShowConfirm(!showConfirm)}
+                                    hitSlop={8}
+                                >
+                                    <Ionicons
+                                        name={
+                                            showConfirm
+                                                ? 'eye-off-outline'
+                                                : 'eye-outline'
+                                        }
+                                        size={20}
+                                        color="#94a3b8"
+                                    />
+                                </Pressable>
+                            </View>
+                        </View>
 
                         {/* ── Error Message ── */}
-                        {!!(error || googleError) && (
+                        {!!displayError && (
                             <View className="mb-4 flex-row items-center rounded-xl bg-red-500/10 px-4 py-3">
                                 <Ionicons
                                     name="alert-circle-outline"
@@ -159,24 +246,29 @@ export default function Login() {
                                     color="#ef4444"
                                 />
                                 <Text className="ml-2 text-sm text-red-400">
-                                    {error || googleError}
+                                    {displayError}
                                 </Text>
                             </View>
                         )}
 
-                        {/* ── Login Button ── */}
+                        {/* ── Sign Up Button ── */}
                         <Pressable
                             className="items-center rounded-xl bg-emerald-500 py-4 active:bg-emerald-600"
-                            onPress={handleSubmit}
+                            onPress={handleSignup}
+                            disabled={loading}
                         >
                             <View className="flex-row items-center">
-                                <Ionicons
-                                    name="log-in-outline"
-                                    size={20}
-                                    color="#fff"
-                                />
+                                {loading ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Ionicons
+                                        name="person-add-outline"
+                                        size={20}
+                                        color="#fff"
+                                    />
+                                )}
                                 <Text className="ml-2 text-base font-bold text-white">
-                                    Sign In
+                                    {loading ? 'Creating Account...' : 'Create Account'}
                                 </Text>
                             </View>
                         </Pressable>
@@ -184,13 +276,11 @@ export default function Login() {
                         {/* ── Divider ── */}
                         <View className="my-6 flex-row items-center">
                             <View className="h-px flex-1 bg-white/10" />
-                            <Text className="mx-4 text-xs text-slate-500">
-                                OR
-                            </Text>
+                            <Text className="mx-4 text-xs text-slate-500">OR</Text>
                             <View className="h-px flex-1 bg-white/10" />
                         </View>
 
-                        {/* ── Google Sign-In Button ── */}
+                        {/* ── Google Sign-Up Button ── */}
                         <Pressable
                             className="flex-row items-center justify-center rounded-xl border border-white/10 bg-white/5 py-4 active:bg-white/10"
                             onPress={handleGoogleSignIn}
@@ -206,23 +296,23 @@ export default function Login() {
                                 />
                             )}
                             <Text className="ml-3 text-base font-semibold text-slate-300">
-                                Continue with Google
+                                Sign up with Google
                             </Text>
                         </Pressable>
                     </View>
 
                     {/* ── Footer ── */}
-                    <View className="mt-8 flex-row">
+                    <View className="mt-8 flex-row self-center">
                         <Text className="text-sm text-slate-500">
-                            Don't have an account?{' '}
+                            Already have an account?{' '}
                         </Text>
-                        <Pressable onPress={() => router.push('/Authentication/signup')}>
+                        <Pressable onPress={() => router.back()}>
                             <Text className="text-sm font-bold text-emerald-400">
-                                Sign Up
+                                Sign In
                             </Text>
                         </Pressable>
                     </View>
-                </View>
+                </ScrollView>
             </KeyboardAvoidingView>
         </LinearGradient>
     );
