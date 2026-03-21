@@ -1,7 +1,6 @@
 import { loginUser } from '@/services/authService';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 
 export function useLogin() {
     const router = useRouter();
@@ -13,9 +12,8 @@ export function useLogin() {
         const success = await loginUser(email, password);
 
         if (success) {
-            Alert.alert('Login successful!');
             setError('');
-            router.replace('/dashboard' as never);
+            router.replace('/System/dashboard' as never);
             return;
         }
 
