@@ -1,5 +1,8 @@
+import { getCurrentUser } from '@/services/authService';
+import { type User } from '@/services/database';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 /* ── Mock Data ── */
@@ -23,6 +26,12 @@ function getGreeting(): string {
 }
 
 export default function Dashboard() {
+    const [user, setUser] = useState<User | null>(null);
+
+    useEffect(() => {
+        getCurrentUser().then(setUser);
+    }, []);
+
     return (
         <LinearGradient
             colors={['#0f172a', '#1e293b', '#0f172a']}
@@ -40,7 +49,7 @@ export default function Dashboard() {
                     <View className="flex-row items-center justify-between">
                         <View>
                             <Text className="text-sm tracking-wide text-slate-400">
-                                {getGreeting()} 👋
+                                {getGreeting()}, {user?.name ?? 'Explorer'} 👋
                             </Text>
                             <Text className="mt-1 text-2xl font-bold text-white">
                                 Dashboard
