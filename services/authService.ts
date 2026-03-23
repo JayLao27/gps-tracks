@@ -1,39 +1,23 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const USERS_KEY = 'gps_tracks_users';
-
-interface StoredUser {
-    name: string;
-    email: string;
-    password: string;
-}
+import { supabase } from './supabase';
+import { getAuthUser, mapAuthUser, type User } from './database';
 
 /**
- * Get all registered users from local storage.
- */
-const getStoredUsers = async (): Promise<StoredUser[]> => {
-    const data = await AsyncStorage.getItem(USERS_KEY);
-    return data ? JSON.parse(data) : [];
-};
-
-/**
- * Login – checks against registered users in AsyncStorage.
+ * Login with email + password via Supabase Auth.
  */
 export const loginUser = async (
     email: string,
     password: string
 ): Promise<boolean> => {
-    const users = await getStoredUsers();
-    return users.some(
-        (u) =>
-            u.email.toLowerCase() === email.toLowerCase() &&
-            u.password === password
-    );
+    const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
+    return !error;
 };
 
 /**
- * Sign up – stores a new user in AsyncStorage.
- * Returns an error message if validation fails, or null on success.
+ * Sign up a new user via Supabase Auth.
+ * Returns an error message on failure, or null on success.
  */
 export const registerUser = async (
     name: string,
@@ -44,39 +28,71 @@ export const registerUser = async (
     if (!email.trim()) return 'Please enter your email';
     if (password.length < 6) return 'Password must be at least 6 characters';
 
-    const users = await getStoredUsers();
-    const exists = users.some(
-        (u) => u.email.toLowerCase() === email.toLowerCase()
-    );
-    if (exists) return 'An account with this email already exists';
+    const { error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+            data: { name: name.trim() },
+        },
+    });
 
-    users.push({ name: name.trim(), email: email.trim().toLowerCase(), password });
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+    if (error) return error.message;
     return null;
 };
 
 /**
  * Login or register via Google profile info.
- * If the email doesn't exist yet, auto-registers the user.
+ * Uses the access token obtained from Google OAuth to authenticate with Supabase.
  */
 export const loginOrRegisterWithGoogle = async (
     name: string,
-    email: string
+    email: string,
+    idToken?: string
 ): Promise<boolean> => {
-    const users = await getStoredUsers();
-    const exists = users.some(
-        (u) => u.email.toLowerCase() === email.toLowerCase()
-    );
-
-    if (!exists) {
-        // Auto-register with a random placeholder password (never used for login)
-        users.push({
-            name,
-            email: email.toLowerCase(),
-            password: `__google_${Date.now()}`,
+    if (idToken) {
+        // Use Supabase's signInWithIdToken for native Google auth
+        const { error } = await supabase.auth.signInWithIdToken({
+            provider: 'google',
+            token: idToken,
         });
-        await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+        return !error;
+    }
+
+    // Fallback: sign in with email (for cases where we only have user info)
+    // This requires the user to already exist in Supabase
+    const { error } = await supabase.auth.signInWithPassword({
+        email: email.toLowerCase(),
+        password: `__google_${email}`,
+    });
+
+    if (error) {
+        // Auto-register if not found
+        const { error: signUpError } = await supabase.auth.signUp({
+            email: email.toLowerCase(),
+            password: `__google_${email}`,
+            options: {
+                data: { name, full_name: name },
+            },
+        });
+        return !signUpError;
     }
 
     return true;
 };
+
+/**
+ * Get the currently logged-in user.
+ */
+export const getCurrentUser = async (): Promise<User | null> => {
+    return getAuthUser();
+};
+
+/**
+ * Sign out the current user.
+ */
+export const logoutUser = async (): Promise<void> => {
+    await supabase.auth.signOut();
+};
+
+// Re-export User type for convenience
+export type { User } from './database';
