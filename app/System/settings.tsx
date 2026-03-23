@@ -1,8 +1,10 @@
+import { getCurrentUser, logoutUser } from '@/services/authService';
+import { type User } from '@/services/database';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /* ── Settings Sections ── */
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -50,6 +52,7 @@ const settingsSections: SettingsSection[] = [
 
 export default function Settings() {
     const router = useRouter();
+    const [user, setUser] = useState<User | null>(null);
     const [toggleStates, setToggleStates] = useState<Record<string, boolean>>(() => {
         const initial: Record<string, boolean> = {};
         settingsSections.forEach((section) => {
@@ -62,11 +65,16 @@ export default function Settings() {
         return initial;
     });
 
+    useEffect(() => {
+        getCurrentUser().then(setUser);
+    }, []);
+
     const handleToggle = (label: string) => {
         setToggleStates((prev) => ({ ...prev, [label]: !prev[label] }));
     };
 
-    const handleSignOut = () => {
+    const handleSignOut = async () => {
+        await logoutUser();
         router.replace('/Authentication/login');
     };
 
@@ -97,10 +105,10 @@ export default function Settings() {
                     </View>
                     <View className="ml-4 flex-1">
                         <Text className="text-base font-bold text-white">
-                            Jay Lao
+                            {user?.name ?? 'User'}
                         </Text>
                         <Text className="mt-0.5 text-sm text-slate-400">
-                            test@example.com
+                            {user?.email ?? ''}
                         </Text>
                     </View>
                     <Pressable className="rounded-xl bg-white/5 p-2.5 active:bg-white/10">
