@@ -10,7 +10,6 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     throw new Error('Missing Supabase env vars: set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (or VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY)');
 }
 
-// Use AsyncStorage only in React Native; let Supabase default to localStorage on web to avoid window access errors during SSR/build.
 const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

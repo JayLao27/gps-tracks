@@ -1,5 +1,5 @@
+import { getAuthUser, type User } from './database';
 import { supabase } from './supabase';
-import { getAuthUser, mapAuthUser, type User } from './database';
 
 /**
  * Login with email + password via Supabase Auth.
@@ -50,7 +50,6 @@ export const loginOrRegisterWithGoogle = async (
     idToken?: string
 ): Promise<boolean> => {
     if (idToken) {
-        // Use Supabase's signInWithIdToken for native Google auth
         const { error } = await supabase.auth.signInWithIdToken({
             provider: 'google',
             token: idToken,
