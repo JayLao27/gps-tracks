@@ -9,9 +9,23 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "GPS Tracks uses your location while the app is open to build movement insights and goal tracking.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GPS Tracks uses your location in the background to keep route tracking active.",
+        "UIBackgroundModes": [
+          "location"
+        ]
+      }
     },
     "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -28,6 +42,15 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-location",
+        {
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "Allow GPS Tracks to access your location in the background for continuous tracking.",
+          "locationWhenInUsePermission": "Allow GPS Tracks to access your location while you use the app."
+        }
+      ],
       [
         "expo-splash-screen",
         {
