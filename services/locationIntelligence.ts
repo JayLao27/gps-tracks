@@ -1,0 +1,559 @@
+export type LocationCategory =
+    | 'study'
+    | 'work'
+    | 'gym'
+    | 'social'
+    | 'home'
+    | 'other';
+
+export interface LocationVisit {
+    id: string;
+    locationName: string;
+    category: LocationCategory;
+    latitude: number;
+    longitude: number;
+    startTime: string;
+    endTime: string;
+}
+
+export interface GoalDefinition {
+    id: string;
+    title: string;
+    category: LocationCategory;
+    targetMinutes: number;
+    period: 'daily' | 'weekly';
+}
+
+export interface PatternInsight {
+    kind: 'daily' | 'weekly';
+    message: string;
+}
+
+export interface ProductivitySummary {
+    score: number;
+    productiveMinutes: number;
+    nonProductiveMinutes: number;
+    productivePercent: number;
+    nonProductivePercent: number;
+    studyDropPercent: number;
+    bestWindow: string;
+}
+
+export interface GoalStatus {
+    goal: GoalDefinition;
+    actualMinutes: number;
+    remainingMinutes: number;
+    achieved: boolean;
+    alert?: string;
+}
+
+export interface Anomaly {
+    type: 'new_place_unusual_hour' | 'long_stay';
+    severity: 'low' | 'medium' | 'high';
+    message: string;
+}
+
+export interface HeatmapPoint {
+    locationName: string;
+    latitude: number;
+    longitude: number;
+    visits: number;
+    minutes: number;
+    intensity: number;
+}
+
+export interface RoutinePrediction {
+    nextLikelyLocation: string;
+    confidence: number;
+    schedulePrediction: string;
+}
+
+export interface IntelligenceReport {
+    patterns: PatternInsight[];
+    productivity: ProductivitySummary;
+    goalStatuses: GoalStatus[];
+    anomalies: Anomaly[];
+    heatmap: HeatmapPoint[];
+    prediction: RoutinePrediction;
+}
+
+const PRODUCTIVE_CATEGORIES: LocationCategory[] = ['study', 'work', 'gym'];
+const NON_PRODUCTIVE_CATEGORIES: LocationCategory[] = ['social', 'other'];
+
+const LOCATION_COORDS: Record<string, { latitude: number; longitude: number }> = {
+    Home: { latitude: 37.7749, longitude: -122.4194 },
+    Library: { latitude: 37.7782, longitude: -122.4158 },
+    Campus: { latitude: 37.8715, longitude: -122.273 },
+    Gym: { latitude: 37.7812, longitude: -122.4113 },
+    Cafe: { latitude: 37.7764, longitude: -122.4241 },
+    Office: { latitude: 37.7896, longitude: -122.4012 },
+    'Night Spot': { latitude: 37.7859, longitude: -122.4064 },
+};
+
+function minutesBetween(startIso: string, endIso: string): number {
+    const start = new Date(startIso).getTime();
+    const end = new Date(endIso).getTime();
+    return Math.max(0, Math.round((end - start) / 60000));
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+}
+
+function toIso(date: Date): string {
+    return date.toISOString();
+}
+
+function startOfWeek(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function endOfWeek(date: Date): Date {
+    const start = startOfWeek(date);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    return end;
+}
+
+function formatHourWindow(hour: number): string {
+    const end = (hour + 2) % 24;
+    const toLabel = (h: number) => {
+        const suffix = h >= 12 ? 'PM' : 'AM';
+        const normalized = h % 12 === 0 ? 12 : h % 12;
+        return `${normalized} ${suffix}`;
+    };
+    return `${toLabel(hour)} to ${toLabel(end)}`;
+}
+
+function dateInRange(iso: string, start: Date, end: Date): boolean {
+    const t = new Date(iso).getTime();
+    return t >= start.getTime() && t < end.getTime();
+}
+
+export function getDefaultGoals(): GoalDefinition[] {
+    return [
+        {
+            id: 'study-3h',
+            title: 'Study 3 hours/day',
+            category: 'study',
+            targetMinutes: 180,
+            period: 'daily',
+        },
+        {
+            id: 'gym-1h',
+            title: 'Gym 1 hour/day',
+            category: 'gym',
+            targetMinutes: 60,
+            period: 'daily',
+        },
+        {
+            id: 'social-limit',
+            title: 'Limit social time to 2 hours/day',
+            category: 'social',
+            targetMinutes: 120,
+            period: 'daily',
+        },
+    ];
+}
+
+export function getMockLocationVisits(days = 21): LocationVisit[] {
+    const visits: LocationVisit[] = [];
+    const now = new Date();
+
+    for (let i = days - 1; i >= 0; i -= 1) {
+        const day = new Date(now);
+        day.setDate(now.getDate() - i);
+        day.setHours(0, 0, 0, 0);
+
+        const weekday = day.getDay();
+        const isWeekend = weekday === 0 || weekday === 6;
+
+        const addVisit = (
+            locationName: keyof typeof LOCATION_COORDS,
+            category: LocationCategory,
+            startHour: number,
+            endHour: number
+        ) => {
+            const start = new Date(day);
+            const end = new Date(day);
+            start.setHours(startHour, 0, 0, 0);
+            end.setHours(endHour, 0, 0, 0);
+
+            visits.push({
+                id: `${locationName}-${toIso(start)}`,
+                locationName,
+                category,
+                latitude: LOCATION_COORDS[locationName].latitude,
+                longitude: LOCATION_COORDS[locationName].longitude,
+                startTime: toIso(start),
+                endTime: toIso(end),
+            });
+        };
+
+        addVisit('Home', 'home', 0, 7);
+
+        if (!isWeekend) {
+            addVisit('Library', 'study', 8, 11);
+            addVisit('Cafe', 'social', 12, 13);
+            addVisit('Office', 'work', 14, 17);
+            addVisit('Gym', 'gym', 18, i % 4 === 0 ? 19 : 18);
+        } else {
+            addVisit('Campus', 'study', 9, 11);
+            addVisit('Cafe', 'social', 12, 15);
+            addVisit('Gym', 'gym', 17, 18);
+        }
+
+        addVisit('Home', 'home', 19, 23);
+    }
+
+    const unusualStart = new Date(now);
+    unusualStart.setDate(now.getDate() - 1);
+    unusualStart.setHours(1, 0, 0, 0);
+    const unusualEnd = new Date(unusualStart);
+    unusualEnd.setHours(4, 0, 0, 0);
+
+    visits.push({
+        id: `Night-Spot-${toIso(unusualStart)}`,
+        locationName: 'Night Spot',
+        category: 'other',
+        latitude: LOCATION_COORDS['Night Spot'].latitude,
+        longitude: LOCATION_COORDS['Night Spot'].longitude,
+        startTime: toIso(unusualStart),
+        endTime: toIso(unusualEnd),
+    });
+
+    return visits.sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+}
+
+function calculateProductivity(visits: LocationVisit[]): ProductivitySummary {
+    let productiveMinutes = 0;
+    let nonProductiveMinutes = 0;
+    const productiveByHour: number[] = Array.from({ length: 24 }, () => 0);
+
+    for (const visit of visits) {
+        const minutes = minutesBetween(visit.startTime, visit.endTime);
+
+        if (PRODUCTIVE_CATEGORIES.includes(visit.category)) {
+            productiveMinutes += minutes;
+            const hour = new Date(visit.startTime).getHours();
+            productiveByHour[hour] += minutes;
+        }
+
+        if (NON_PRODUCTIVE_CATEGORIES.includes(visit.category)) {
+            nonProductiveMinutes += minutes;
+        }
+    }
+
+    const totalClassified = productiveMinutes + nonProductiveMinutes;
+    const productivePercent = totalClassified
+        ? Math.round((productiveMinutes / totalClassified) * 100)
+        : 0;
+    const nonProductivePercent = totalClassified
+        ? Math.round((nonProductiveMinutes / totalClassified) * 100)
+        : 0;
+
+    let bestHour = 8;
+    let bestWindowMinutes = -1;
+    for (let hour = 0; hour < 24; hour += 1) {
+        const windowMinutes = productiveByHour[hour] + productiveByHour[(hour + 1) % 24];
+        if (windowMinutes > bestWindowMinutes) {
+            bestWindowMinutes = windowMinutes;
+            bestHour = hour;
+        }
+    }
+
+    const now = new Date();
+    const thisWeekStart = startOfWeek(now);
+    const thisWeekEnd = endOfWeek(now);
+    const prevWeekEnd = new Date(thisWeekStart);
+    const prevWeekStart = new Date(thisWeekStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+
+    const studyMinutesInRange = (start: Date, end: Date) =>
+        visits
+            .filter((visit) => visit.category === 'study' && dateInRange(visit.startTime, start, end))
+            .reduce((sum, visit) => sum + minutesBetween(visit.startTime, visit.endTime), 0);
+
+    const thisWeekStudy = studyMinutesInRange(thisWeekStart, thisWeekEnd);
+    const prevWeekStudy = studyMinutesInRange(prevWeekStart, prevWeekEnd);
+    const studyDropPercent = prevWeekStudy
+        ? Math.round(((prevWeekStudy - thisWeekStudy) / prevWeekStudy) * 100)
+        : 0;
+
+    const rawScore = productivePercent - nonProductivePercent * 0.4;
+
+    return {
+        score: Math.round(clamp(rawScore, 0, 100)),
+        productiveMinutes,
+        nonProductiveMinutes,
+        productivePercent,
+        nonProductivePercent,
+        studyDropPercent,
+        bestWindow: formatHourWindow(bestHour),
+    };
+}
+
+function detectPatterns(visits: LocationVisit[], productivity: ProductivitySummary): PatternInsight[] {
+    const insights: PatternInsight[] = [];
+
+    insights.push({
+        kind: 'weekly',
+        message: `You spend ${productivity.nonProductivePercent}% of your classified time in non-productive places.`,
+    });
+
+    if (productivity.studyDropPercent > 0) {
+        insights.push({
+            kind: 'weekly',
+            message: `Your study time dropped ${productivity.studyDropPercent}% this week.`,
+        });
+    }
+
+    insights.push({
+        kind: 'daily',
+        message: `You are most productive between ${productivity.bestWindow}.`,
+    });
+
+    const byDay: Record<number, number> = {};
+    for (const visit of visits) {
+        if (visit.category !== 'study') continue;
+        const day = new Date(visit.startTime).getDay();
+        byDay[day] = (byDay[day] ?? 0) + minutesBetween(visit.startTime, visit.endTime);
+    }
+
+    let topDay = 1;
+    let topMinutes = 0;
+    for (const [key, minutes] of Object.entries(byDay)) {
+        if (minutes > topMinutes) {
+            topMinutes = minutes;
+            topDay = Number(key);
+        }
+    }
+
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    insights.push({
+        kind: 'weekly',
+        message: `Your strongest study habit appears on ${dayNames[topDay]}.`,
+    });
+
+    return insights;
+}
+
+function evaluateGoals(visits: LocationVisit[], goals: GoalDefinition[]): GoalStatus[] {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    return goals.map((goal) => {
+        const windowStart = goal.period === 'daily' ? todayStart : startOfWeek(now);
+        const windowEnd = goal.period === 'daily' ? tomorrowStart : endOfWeek(now);
+
+        const actualMinutes = visits
+            .filter((visit) => visit.category === goal.category && dateInRange(visit.startTime, windowStart, windowEnd))
+            .reduce((sum, visit) => sum + minutesBetween(visit.startTime, visit.endTime), 0);
+
+        const remaining = Math.max(0, goal.targetMinutes - actualMinutes);
+        const achieved = goal.id === 'social-limit'
+            ? actualMinutes <= goal.targetMinutes
+            : actualMinutes >= goal.targetMinutes;
+
+        let alert: string | undefined;
+
+        if (goal.id === 'social-limit' && actualMinutes > goal.targetMinutes) {
+            const exceeded = Math.round((actualMinutes - goal.targetMinutes) / 60);
+            alert = `You exceeded social time by ${exceeded} hour${exceeded === 1 ? '' : 's'} today.`;
+        }
+
+        if (goal.id === 'gym-1h' && !achieved && now.getHours() >= 20) {
+            alert = 'You skipped gym today.';
+        }
+
+        return {
+            goal,
+            actualMinutes,
+            remainingMinutes: remaining,
+            achieved,
+            alert,
+        };
+    });
+}
+
+function detectAnomalies(visits: LocationVisit[]): Anomaly[] {
+    const anomalies: Anomaly[] = [];
+
+    const sorted = [...visits].sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+
+    const seenLocations = new Set<string>();
+
+    for (const visit of sorted) {
+        const hour = new Date(visit.startTime).getHours();
+        const isUnusualHour = hour < 6 || hour >= 23;
+        const isNewLocation = !seenLocations.has(visit.locationName);
+
+        if (isNewLocation && isUnusualHour) {
+            anomalies.push({
+                type: 'new_place_unusual_hour',
+                severity: 'high',
+                message: `You visited a new place (${visit.locationName}) at an unusual hour.`,
+            });
+        }
+
+        seenLocations.add(visit.locationName);
+    }
+
+    const durationsByLocation: Record<string, number[]> = {};
+    for (const visit of sorted) {
+        const duration = minutesBetween(visit.startTime, visit.endTime);
+        if (!durationsByLocation[visit.locationName]) {
+            durationsByLocation[visit.locationName] = [];
+        }
+        durationsByLocation[visit.locationName].push(duration);
+    }
+
+    for (const [locationName, durations] of Object.entries(durationsByLocation)) {
+        if (durations.length < 3) continue;
+
+        const latest = durations[durations.length - 1];
+        const baseline =
+            durations.slice(0, durations.length - 1).reduce((sum, v) => sum + v, 0) /
+            (durations.length - 1);
+
+        if (latest > baseline * 1.6 && latest - baseline >= 30) {
+            anomalies.push({
+                type: 'long_stay',
+                severity: 'medium',
+                message: `You stayed longer than usual at ${locationName} (${Math.round(latest)} min vs ${Math.round(baseline)} min typical).`,
+            });
+        }
+    }
+
+    return anomalies.slice(0, 5);
+}
+
+function buildHeatmap(visits: LocationVisit[]): HeatmapPoint[] {
+    const byLocation: Record<string, HeatmapPoint> = {};
+
+    for (const visit of visits) {
+        const minutes = minutesBetween(visit.startTime, visit.endTime);
+
+        if (!byLocation[visit.locationName]) {
+            byLocation[visit.locationName] = {
+                locationName: visit.locationName,
+                latitude: visit.latitude,
+                longitude: visit.longitude,
+                visits: 0,
+                minutes: 0,
+                intensity: 0,
+            };
+        }
+
+        byLocation[visit.locationName].visits += 1;
+        byLocation[visit.locationName].minutes += minutes;
+    }
+
+    const list = Object.values(byLocation).sort((a, b) => b.minutes - a.minutes);
+    const maxMinutes = list[0]?.minutes ?? 1;
+
+    for (const point of list) {
+        point.intensity = clamp(point.minutes / maxMinutes, 0.05, 1);
+    }
+
+    return list;
+}
+
+function predictRoutine(visits: LocationVisit[]): RoutinePrediction {
+    if (visits.length < 2) {
+        return {
+            nextLikelyLocation: 'Home',
+            confidence: 0,
+            schedulePrediction: 'Not enough data yet.',
+        };
+    }
+
+    const sorted = [...visits].sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+
+    const transitionCounts: Record<string, Record<string, number>> = {};
+    for (let i = 0; i < sorted.length - 1; i += 1) {
+        const current = sorted[i].locationName;
+        const next = sorted[i + 1].locationName;
+
+        if (!transitionCounts[current]) transitionCounts[current] = {};
+        transitionCounts[current][next] = (transitionCounts[current][next] ?? 0) + 1;
+    }
+
+    const lastLocation = sorted[sorted.length - 1].locationName;
+    const options = transitionCounts[lastLocation] ?? {};
+
+    let nextLikelyLocation = 'Home';
+    let bestCount = 0;
+    let total = 0;
+
+    for (const [loc, count] of Object.entries(options)) {
+        total += count;
+        if (count > bestCount) {
+            bestCount = count;
+            nextLikelyLocation = loc;
+        }
+    }
+
+    const confidence = total ? Math.round((bestCount / total) * 100) : 0;
+
+    const hourLocationCounts: Record<number, Record<string, number>> = {};
+    for (const visit of sorted) {
+        const hour = new Date(visit.startTime).getHours();
+        if (!hourLocationCounts[hour]) hourLocationCounts[hour] = {};
+        hourLocationCounts[hour][visit.locationName] =
+            (hourLocationCounts[hour][visit.locationName] ?? 0) + 1;
+    }
+
+    let bestHour = 18;
+    let bestHourLocation = 'Home';
+    let highest = 0;
+
+    for (const [hourString, locationCounts] of Object.entries(hourLocationCounts)) {
+        for (const [locationName, count] of Object.entries(locationCounts)) {
+            if (count > highest) {
+                highest = count;
+                bestHour = Number(hourString);
+                bestHourLocation = locationName;
+            }
+        }
+    }
+
+    const suffix = bestHour >= 12 ? 'PM' : 'AM';
+    const normalized = bestHour % 12 === 0 ? 12 : bestHour % 12;
+
+    return {
+        nextLikelyLocation,
+        confidence,
+        schedulePrediction: `You usually go to ${bestHourLocation} at ${normalized} ${suffix}.`,
+    };
+}
+
+export function generateIntelligenceReport(
+    visits: LocationVisit[],
+    goals: GoalDefinition[] = getDefaultGoals()
+): IntelligenceReport {
+    const productivity = calculateProductivity(visits);
+
+    return {
+        patterns: detectPatterns(visits, productivity),
+        productivity,
+        goalStatuses: evaluateGoals(visits, goals),
+        anomalies: detectAnomalies(visits),
+        heatmap: buildHeatmap(visits),
+        prediction: predictRoutine(visits),
+    };
+}
