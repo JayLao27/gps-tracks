@@ -1,3 +1,5 @@
+import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
+import { useLocationTracker } from '@/hooks/useLocationTracker';
 import { getCurrentUser } from '@/services/authService';
 import { type User } from '@/services/database';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +29,17 @@ function getGreeting(): string {
 
 export default function Dashboard() {
     const [user, setUser] = useState<User | null>(null);
+    const { report, source, refresh } = useIntelligenceReport();
+    const {
+        isTracking,
+        isBackgroundTracking,
+        lastPing,
+        error,
+        startTracking,
+        stopTracking,
+        startBackgroundTracking,
+        stopBackgroundTracking,
+    } = useLocationTracker();
 
     useEffect(() => {
         getCurrentUser().then(setUser);
@@ -89,10 +102,73 @@ export default function Dashboard() {
                                     Start a new GPS track and record your route in real-time.
                                 </Text>
 
-                                <Pressable className="flex-row items-center self-start rounded-xl bg-emerald-500 px-5 py-3 active:bg-emerald-600">
-                                    <Ionicons name="navigate" size={18} color="#fff" />
+                                <Text className="mb-3 text-xs text-emerald-100/80">
+                                    Source: {source === 'live' ? 'Live tracked data' : 'Demo data'}
+                                </Text>
+
+                                {!!lastPing && (
+                                    <Text className="mb-3 text-xs text-emerald-200/80">
+                                        Last ping: {lastPing.locationName}
+                                    </Text>
+                                )}
+
+                                {!!error && (
+                                    <Text className="mb-3 text-xs text-red-300">{error}</Text>
+                                )}
+
+                                <Pressable
+                                    onPress={isTracking ? stopTracking : startTracking}
+                                    className={`flex-row items-center self-start rounded-xl px-5 py-3 ${
+                                        isTracking
+                                            ? 'bg-amber-500 active:bg-amber-600'
+                                            : 'bg-emerald-500 active:bg-emerald-600'
+                                    }`}
+                                >
+                                    <Ionicons
+                                        name={isTracking ? 'stop-circle-outline' : 'navigate'}
+                                        size={18}
+                                        color="#fff"
+                                    />
                                     <Text className="ml-2 text-sm font-bold text-white">
-                                        Start Tracking
+                                        {isTracking ? 'Stop Tracking' : 'Start Tracking'}
+                                    </Text>
+                                </Pressable>
+
+                                <Pressable
+                                    onPress={refresh}
+                                    className="ml-3 mt-3 flex-row items-center self-start rounded-xl border border-white/20 px-4 py-2"
+                                >
+                                    <Ionicons name="refresh-outline" size={14} color="#cbd5e1" />
+                                    <Text className="ml-1 text-xs font-semibold text-slate-300">
+                                        Refresh Insights
+                                    </Text>
+                                </Pressable>
+
+                                <Pressable
+                                    onPress={
+                                        isBackgroundTracking
+                                            ? stopBackgroundTracking
+                                            : startBackgroundTracking
+                                    }
+                                    className={`mt-3 flex-row items-center self-start rounded-xl px-4 py-2 ${
+                                        isBackgroundTracking
+                                            ? 'bg-indigo-500/80 active:bg-indigo-600'
+                                            : 'border border-white/20 bg-white/5 active:bg-white/10'
+                                    }`}
+                                >
+                                    <Ionicons
+                                        name={
+                                            isBackgroundTracking
+                                                ? 'pause-circle-outline'
+                                                : 'moon-outline'
+                                        }
+                                        size={14}
+                                        color="#e2e8f0"
+                                    />
+                                    <Text className="ml-1 text-xs font-semibold text-slate-200">
+                                        {isBackgroundTracking
+                                            ? 'Stop Background Tracking'
+                                            : 'Enable Background Tracking'}
                                     </Text>
                                 </Pressable>
                             </View>
@@ -119,6 +195,32 @@ export default function Dashboard() {
                             <Text className="mt-0.5 text-xs text-slate-400">
                                 {stat.unit} · {stat.label}
                             </Text>
+                        </View>
+                    ))}
+                </View>
+
+                {/* ── Smart Insights ── */}
+                <View className="px-6 pt-6">
+                    <Text className="mb-3 text-lg font-bold text-white">
+                        Smart Insights
+                    </Text>
+                    <View className="mb-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                        <Text className="text-xs uppercase tracking-widest text-emerald-300">
+                            Productivity Score
+                        </Text>
+                        <Text className="mt-1 text-2xl font-bold text-white">
+                            {report.productivity.score}/100
+                        </Text>
+                        <Text className="mt-1 text-xs text-slate-300">
+                            Non-productive time: {report.productivity.nonProductivePercent}%
+                        </Text>
+                    </View>
+                    {report.patterns.slice(0, 2).map((pattern) => (
+                        <View
+                            key={pattern.message}
+                            className="mb-3 rounded-2xl border border-white/10 bg-white/5 p-4"
+                        >
+                            <Text className="text-sm text-slate-100">{pattern.message}</Text>
                         </View>
                     ))}
                 </View>

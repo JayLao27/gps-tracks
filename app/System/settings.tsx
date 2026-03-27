@@ -1,10 +1,11 @@
+import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
 import { getCurrentUser, logoutUser } from '@/services/authService';
 import { type User } from '@/services/database';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 /* ── Settings Sections ── */
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -34,6 +35,7 @@ const settingsSections: SettingsSection[] = [
     {
         title: 'Tracking',
         items: [
+            { icon: 'pin-outline', label: 'Manage Known Places', iconColor: '#34d399', type: 'link' },
             { icon: 'location-outline', label: 'High Accuracy GPS', iconColor: '#a78bfa', type: 'toggle', value: true },
             { icon: 'battery-half-outline', label: 'Battery Saver Mode', iconColor: '#fb7185', type: 'toggle', value: false },
             { icon: 'analytics-outline', label: 'Auto-Pause Detection', iconColor: '#38bdf8', type: 'toggle', value: true },
@@ -53,6 +55,7 @@ const settingsSections: SettingsSection[] = [
 export default function Settings() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
+    const { report, source } = useIntelligenceReport();
     const [toggleStates, setToggleStates] = useState<Record<string, boolean>>(() => {
         const initial: Record<string, boolean> = {};
         settingsSections.forEach((section) => {
@@ -76,6 +79,12 @@ export default function Settings() {
     const handleSignOut = async () => {
         await logoutUser();
         router.replace('/Authentication/login');
+    };
+
+    const handleLinkPress = (label: string) => {
+        if (label === 'Manage Known Places') {
+            router.push('/System/places');
+        }
     };
 
     return (
@@ -126,6 +135,11 @@ export default function Settings() {
                             {section.items.map((item, idx) => (
                                 <Pressable
                                     key={item.label}
+                                    onPress={
+                                        item.type === 'link'
+                                            ? () => handleLinkPress(item.label)
+                                            : undefined
+                                    }
                                     className={`flex-row items-center px-4 py-3.5 active:bg-white/5 ${
                                         idx < section.items.length - 1
                                             ? 'border-b border-white/5'
@@ -171,6 +185,47 @@ export default function Settings() {
                         </View>
                     </View>
                 ))}
+
+                {/* ── Behavior Coach Alerts ── */}
+                <View className="px-6 pt-6">
+                    <Text className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                        Behavior Coach
+                    </Text>
+                    <Text className="mb-3 text-xs text-slate-500">
+                        Source: {source === 'live' ? 'Live tracked data' : 'Demo fallback data'}
+                    </Text>
+
+                    {report.goalStatuses
+                        .filter((status) => status.alert)
+                        .slice(0, 2)
+                        .map((status) => (
+                            <View
+                                key={status.goal.id}
+                                className="mb-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4"
+                            >
+                                <Text className="text-xs uppercase tracking-widest text-amber-300">
+                                    Goal Alert
+                                </Text>
+                                <Text className="mt-1 text-sm text-amber-100">
+                                    {status.alert}
+                                </Text>
+                            </View>
+                        ))}
+
+                    {report.anomalies.slice(0, 1).map((anomaly) => (
+                        <View
+                            key={anomaly.message}
+                            className="mb-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4"
+                        >
+                            <Text className="text-xs uppercase tracking-widest text-red-300">
+                                Safety Alert
+                            </Text>
+                            <Text className="mt-1 text-sm text-red-200">
+                                {anomaly.message}
+                            </Text>
+                        </View>
+                    ))}
+                </View>
 
                 {/* ── Sign Out ── */}
                 <View className="px-6 pt-8">
