@@ -6,10 +6,7 @@ import { useState } from 'react';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// ── Google OAuth Config ──
-// Replace with your own Google Cloud OAuth Client ID.
-// Create one at: https://console.cloud.google.com/apis/credentials
-// Choose "Web application" type and add your redirect URI.
+
 const GOOGLE_CLIENT_ID = '707847440005-1ncojlfspbkbgo8iq3d94ie8e8oulf60.apps.googleusercontent.com';
 
 const discovery: AuthSession.DiscoveryDocument = {
@@ -23,8 +20,6 @@ export function useGoogleAuth() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // For web development, use your localhost URL.
-    // For production or native builds, use AuthSession.makeRedirectUri({ scheme: 'gpstracks' })
     const redirectUri = 'http://localhost:8081';
 
     const [request, , promptAsync] = AuthSession.useAuthRequest(
@@ -57,7 +52,6 @@ export function useGoogleAuth() {
                 );
                 const userInfo = await userInfoResponse.json();
 
-                // Register or login the user locally
                 await loginOrRegisterWithGoogle(
                     userInfo.name || 'Google User',
                     userInfo.email
