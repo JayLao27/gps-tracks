@@ -5,6 +5,8 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver = {
 	...config.resolver,
+	resolverMainFields: ['react-native', 'browser', 'main'],
+	unstable_enablePackageExports: false,
 	extraNodeModules: {
 		...(config.resolver?.extraNodeModules || {}),
 		stream: require.resolve('stream-browserify'),
