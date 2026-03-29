@@ -187,7 +187,16 @@ export async function startForegroundLocationTracking(
 export function stopForegroundLocationTracking(
     subscription: Location.LocationSubscription | null
 ): void {
-    subscription?.remove();
+    if (!subscription) {
+        return;
+    }
+
+    try {
+        subscription.remove();
+    } catch {
+        // Some expo-location / React Native version combinations throw here due to
+        // an internal event emitter API mismatch. We swallow this to avoid a crash.
+    }
 }
 
 async function fetchSupabasePings(days: number): Promise<TrackedLocationPing[]> {
