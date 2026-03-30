@@ -79,16 +79,10 @@ export const loginOrRegisterWithGoogle = async (
     return true;
 };
 
-/**
- * Get the currently logged-in user.
- */
 export const getCurrentUser = async (): Promise<User | null> => {
     return getAuthUser();
 };
 
-/**
- * Sign out the current user.
- */
 export const logoutUser = async (): Promise<void> => {
     await supabase.auth.signOut();
 };
