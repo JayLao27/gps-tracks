@@ -40,10 +40,6 @@ export const registerUser = async (
     return null;
 };
 
-/**
- * Login or register via Google profile info.
- * Uses the access token obtained from Google OAuth to authenticate with Supabase.
- */
 export const loginOrRegisterWithGoogle = async (
     name: string,
     email: string,
@@ -57,15 +53,12 @@ export const loginOrRegisterWithGoogle = async (
         return !error;
     }
 
-    // Fallback: sign in with email (for cases where we only have user info)
-    // This requires the user to already exist in Supabase
     const { error } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase(),
         password: `__google_${email}`,
     });
 
     if (error) {
-        // Auto-register if not found
         const { error: signUpError } = await supabase.auth.signUp({
             email: email.toLowerCase(),
             password: `__google_${email}`,
@@ -87,5 +80,4 @@ export const logoutUser = async (): Promise<void> => {
     await supabase.auth.signOut();
 };
 
-// Re-export User type for convenience
 export type { User } from './database';
