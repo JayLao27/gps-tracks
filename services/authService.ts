@@ -19,9 +19,7 @@ const mapAuthErrorMessage = (message: string): string => {
     return message;
 };
 
-/**
- * Login with email + password via Supabase Auth.
- */
+
 export const loginUser = async (
     email: string,
     password: string
@@ -33,10 +31,7 @@ export const loginUser = async (
     return !error;
 };
 
-/**
- * Sign up a new user via Supabase Auth.
- * Returns an error message on failure, or null on success.
- */
+
 export const registerUser = async (
     name: string,
     email: string,
