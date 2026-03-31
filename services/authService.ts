@@ -26,7 +26,7 @@ export const registerUser = async (
 ): Promise<string | null> => {
     if (!name.trim()) return 'Please enter your name';
     if (!email.trim()) return 'Please enter your email';
-    if (password.length < 6) return 'Password must be at least 6 characters';
+    if (password.length < 8) return 'Password must be at least 8 characters';
 
     const { error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
