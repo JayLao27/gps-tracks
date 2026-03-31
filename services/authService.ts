@@ -1,6 +1,24 @@
 import { getAuthUser, type User } from './database';
 import { supabase } from './supabase';
 
+const mapAuthErrorMessage = (message: string): string => {
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('email rate limit exceeded')) {
+        return 'Too many signup emails were requested. Please wait a few minutes and try again.';
+    }
+
+    if (normalized.includes('too many requests')) {
+        return 'Too many attempts detected. Please wait a moment and try again.';
+    }
+
+    if (normalized.includes('invalid login credentials')) {
+        return 'Invalid email or password.';
+    }
+
+    return message;
+};
+
 /**
  * Login with email + password via Supabase Auth.
  */
@@ -36,7 +54,7 @@ export const registerUser = async (
         },
     });
 
-    if (error) return error.message;
+    if (error) return mapAuthErrorMessage(error.message);
     return null;
 };
 
