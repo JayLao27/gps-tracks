@@ -2,6 +2,8 @@ import { registerUser } from '@/services/authService';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
+const SIGNUP_RETRY_COOLDOWN_MS = 15000;
+
 export function useSignup() {
     const router = useRouter();
 
@@ -11,13 +13,27 @@ export function useSignup() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
 
     const handleSignup = async () => {
+        if (loading) return;
+
+        const now = Date.now();
+        const msSinceLastSubmit = now - lastSubmitAt;
+        if (msSinceLastSubmit < SIGNUP_RETRY_COOLDOWN_MS) {
+            const secondsRemaining = Math.ceil(
+                (SIGNUP_RETRY_COOLDOWN_MS - msSinceLastSubmit) / 1000
+            );
+            setError(`Please wait ${secondsRemaining}s before trying again.`);
+            return;
+        }
+
         if (password !== confirmPassword) {
             setError('Passwords do not match');
             return;
         }
 
+        setLastSubmitAt(now);
         setLoading(true);
         setError('');
 
