@@ -1,8 +1,6 @@
 import { supabase } from './supabase';
 
-/**
- * User profile shape returned from Supabase Auth.
- */
+
 export interface User {
     id: string;
     name: string;
@@ -11,9 +9,7 @@ export interface User {
     created_at: string;
 }
 
-/**
- * Convert a Supabase Auth user into our app's User shape.
- */
+
 export function mapAuthUser(authUser: {
     id: string;
     email?: string;
@@ -34,9 +30,7 @@ export function mapAuthUser(authUser: {
     };
 }
 
-/**
- * Fetch the current authenticated user from Supabase.
- */
+
 export async function getAuthUser(): Promise<User | null> {
     const {
         data: { user },
