@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-//faah
+
 import {
     addKnownPlace,
     deleteKnownPlace,
