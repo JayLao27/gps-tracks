@@ -36,7 +36,6 @@ export default function Login() {
                 className="flex-1"
             >
                 <View className="flex-1 items-center justify-center px-6">
-                    {/* ── Branding Section ── */}
                     <View className="mb-10 items-center">
                         <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20">
                             <Ionicons
@@ -53,7 +52,6 @@ export default function Login() {
                         </Text>
                     </View>
 
-                    {/* ── Login Card ── */}
                     <View className="w-full max-w-[400px] rounded-3xl border border-white/10 bg-white/5 p-7">
                         <Text className="mb-1 text-xl font-bold text-white">
                             Welcome back
@@ -62,7 +60,6 @@ export default function Login() {
                             Sign in to continue tracking
                         </Text>
 
-                        {/* ── Email Input ── */}
                         <View className="mb-4">
                             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
                                 Email
@@ -95,7 +92,6 @@ export default function Login() {
                             </View>
                         </View>
 
-                        {/* ── Password Input ── */}
                         <View className="mb-4">
                             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
                                 Password
@@ -143,14 +139,12 @@ export default function Login() {
                             </View>
                         </View>
 
-                        {/* ── Forgot Password ── */}
                         <Pressable className="mb-5 self-end">
                             <Text className="text-xs font-medium text-emerald-400">
                                 Forgot password?
                             </Text>
                         </Pressable>
 
-                        {/* ── Error Message ── */}
                         {!!(error || googleError) && (
                             <View className="mb-4 flex-row items-center rounded-xl bg-red-500/10 px-4 py-3">
                                 <Ionicons
@@ -164,7 +158,6 @@ export default function Login() {
                             </View>
                         )}
 
-                        {/* ── Login Button ── */}
                         <Pressable
                             className="items-center rounded-xl bg-emerald-500 py-4 active:bg-emerald-600"
                             onPress={handleSubmit}
@@ -181,7 +174,6 @@ export default function Login() {
                             </View>
                         </Pressable>
 
-                        {/* ── Divider ── */}
                         <View className="my-6 flex-row items-center">
                             <View className="h-px flex-1 bg-white/10" />
                             <Text className="mx-4 text-xs text-slate-500">
@@ -190,7 +182,6 @@ export default function Login() {
                             <View className="h-px flex-1 bg-white/10" />
                         </View>
 
-                        {/* ── Google Sign-In Button ── */}
                         <Pressable
                             className="flex-row items-center justify-center rounded-xl border border-white/10 bg-white/5 py-4 active:bg-white/10"
                             onPress={handleGoogleSignIn}

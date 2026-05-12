@@ -67,7 +67,6 @@ export default function Signup() {
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* ── Branding Section ── */}
                     <View className="mb-8 items-center">
                         <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20">
                             <Ionicons name="location" size={40} color="#34d399" />
@@ -80,7 +79,6 @@ export default function Signup() {
                         </Text>
                     </View>
 
-                    {/* ── Signup Card ── */}
                     <View className="w-full max-w-[400px] self-center rounded-3xl border border-white/10 bg-white/5 p-7">
                         <Text className="mb-1 text-xl font-bold text-white">
                             Create Account
@@ -89,7 +87,6 @@ export default function Signup() {
                             Join and start recording your routes
                         </Text>
 
-                        {/* ── Name Input ── */}
                         <View className="mb-4">
                             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
                                 Full Name
@@ -118,7 +115,6 @@ export default function Signup() {
                             </View>
                         </View>
 
-                        {/* ── Email Input ── */}
                         <View className="mb-4">
                             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
                                 Email
@@ -149,7 +145,6 @@ export default function Signup() {
                             </View>
                         </View>
 
-                        {/* ── Password Input ── */}
                         <View className="mb-4">
                             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
                                 Password
@@ -193,7 +188,6 @@ export default function Signup() {
                             </View>
                         </View>
 
-                        {/* ── Confirm Password Input ── */}
                         <View className="mb-5">
                             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
                                 Confirm Password

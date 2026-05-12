@@ -7,7 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-/* ── Mock Data ── */
 const stats = [
     { label: 'Distance', value: '48.2', unit: 'km', icon: 'trail-sign-outline' as const, color: '#34d399' },
     { label: 'Active Time', value: '5.4', unit: 'hrs', icon: 'timer-outline' as const, color: '#60a5fa' },
@@ -57,7 +56,6 @@ export default function Dashboard() {
                 contentContainerStyle={{ paddingBottom: 32 }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── Header ── */}
                 <View className="px-6 pb-2 pt-16">
                     <View className="flex-row items-center justify-between">
                         <View>
@@ -74,7 +72,6 @@ export default function Dashboard() {
                     </View>
                 </View>
 
-                {/* ── Map Preview Card ── */}
                 <View className="px-6 pt-4">
                     <View className="overflow-hidden rounded-3xl border border-white/10">
                         <LinearGradient
@@ -176,7 +173,6 @@ export default function Dashboard() {
                     </View>
                 </View>
 
-                {/* ── Stats Row ── */}
                 <View className="flex-row gap-3 px-6 pt-5">
                     {stats.map((stat) => (
                         <View

@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
-/* ── Mock Data ── */
 const filters = ['All', 'This Week', 'This Month'];
 
 const tracks = [
@@ -84,7 +83,6 @@ export default function Activity() {
                 contentContainerStyle={{ paddingBottom: 32 }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── Header ── */}
                 <View className="px-6 pb-2 pt-16">
                     <Text className="text-2xl font-bold text-white">Activity</Text>
                     <Text className="mt-1 text-sm text-slate-400">
@@ -92,7 +90,6 @@ export default function Activity() {
                     </Text>
                 </View>
 
-                {/* ── Summary Bar ── */}
                 <View className="mx-6 mt-4 flex-row rounded-2xl border border-white/10 bg-white/5 p-4">
                     <View className="flex-1 items-center">
                         <Text className="text-lg font-bold text-white">52.5</Text>
@@ -110,7 +107,6 @@ export default function Activity() {
                     </View>
                 </View>
 
-                {/* ── Filter Chips ── */}
                 <View className="flex-row gap-2 px-6 pt-5">
                     {filters.map((filter) => (
                         <Pressable
@@ -135,7 +131,6 @@ export default function Activity() {
                     ))}
                 </View>
 
-                {/* ── Track List ── */}
                 <View className="px-6 pt-5">
                     {tracks.map((track) => (
                         <Pressable
@@ -168,7 +163,6 @@ export default function Activity() {
                                 />
                             </View>
 
-                            {/* ── Track Meta Row ── */}
                             <View className="mt-3 flex-row border-t border-white/5 pt-3">
                                 <View className="flex-1 flex-row items-center">
                                     <Ionicons

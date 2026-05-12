@@ -7,7 +7,6 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
-/* ── Settings Sections ── */
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 interface SettingItem {
@@ -99,7 +98,6 @@ export default function Settings() {
                 contentContainerStyle={{ paddingBottom: 32 }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── Header ── */}
                 <View className="px-6 pb-2 pt-16">
                     <Text className="text-2xl font-bold text-white">Settings</Text>
                     <Text className="mt-1 text-sm text-slate-400">
@@ -107,7 +105,6 @@ export default function Settings() {
                     </Text>
                 </View>
 
-                {/* ── Profile Card ── */}
                 <View className="mx-6 mt-4 flex-row items-center rounded-2xl border border-white/10 bg-white/5 p-4">
                     <View className="h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
                         <Ionicons name="person" size={28} color="#34d399" />
@@ -125,7 +122,6 @@ export default function Settings() {
                     </Pressable>
                 </View>
 
-                {/* ── Settings Sections ── */}
                 {settingsSections.map((section) => (
                     <View key={section.title} className="px-6 pt-6">
                         <Text className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
@@ -186,7 +182,7 @@ export default function Settings() {
                     </View>
                 ))}
 
-                {/* ── Behavior Coach Alerts ── */}
+
                 <View className="px-6 pt-6">
                     <Text className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
                         Behavior Coach
