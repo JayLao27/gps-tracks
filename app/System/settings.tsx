@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { useTheme } from '@/hooks/useTheme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -27,26 +28,32 @@ const settingsSections: SettingsSection[] = [
         title: 'Account',
         items: [
             { icon: 'person-outline', label: 'Edit Profile', iconColor: '#60a5fa', type: 'link' },
-            { icon: 'notifications-outline', label: 'Notifications', iconColor: '#f59e0b', type: 'toggle', value: true },
-            { icon: 'shield-checkmark-outline', label: 'Privacy', iconColor: '#34d399', type: 'link' },
+            { icon: 'notifications-outline', label: 'Notifications', iconColor: '#fbbf24', type: 'toggle', value: true },
+            { icon: 'shield-checkmark-outline', label: 'Privacy & Security', iconColor: '#34d399', type: 'link' },
         ],
     },
     {
-        title: 'Tracking',
+        title: 'Preferences',
+        items: [
+            { icon: 'contrast-outline', label: 'Dark Mode', iconColor: '#a78bfa', type: 'toggle', value: true },
+        ],
+    },
+    {
+        title: 'Tracking Core',
         items: [
             { icon: 'pin-outline', label: 'Manage Known Places', iconColor: '#34d399', type: 'link' },
-            { icon: 'location-outline', label: 'High Accuracy GPS', iconColor: '#a78bfa', type: 'toggle', value: true },
-            { icon: 'battery-half-outline', label: 'Battery Saver Mode', iconColor: '#fb7185', type: 'toggle', value: false },
+            { icon: 'location-outline', label: 'High Accuracy GPS', iconColor: '#60a5fa', type: 'toggle', value: true },
+            { icon: 'battery-half-outline', label: 'Battery Saver Mode', iconColor: '#f43f5e', type: 'toggle', value: false },
             { icon: 'analytics-outline', label: 'Auto-Pause Detection', iconColor: '#38bdf8', type: 'toggle', value: true },
-            { icon: 'cloud-upload-outline', label: 'Auto Sync', iconColor: '#34d399', type: 'toggle', value: true },
+            { icon: 'cloud-upload-outline', label: 'Auto Cloud Sync', iconColor: '#c084fc', type: 'toggle', value: true },
         ],
     },
     {
-        title: 'About',
+        title: 'Support & Legal',
         items: [
             { icon: 'help-circle-outline', label: 'Help & Support', iconColor: '#94a3b8', type: 'link' },
             { icon: 'document-text-outline', label: 'Terms of Service', iconColor: '#94a3b8', type: 'link' },
-            { icon: 'information-circle-outline', label: 'App Version 1.0.0', iconColor: '#94a3b8', type: 'link' },
+            { icon: 'information-circle-outline', label: 'App Version 1.0.0', iconColor: '#64748b', type: 'link' },
         ],
     },
 ];
@@ -55,6 +62,7 @@ export default function Settings() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
     const { report, source } = useIntelligenceReport();
+    const { colors, isDark, toggleTheme } = useTheme();
     const [toggleStates, setToggleStates] = useState<Record<string, boolean>>(() => {
         const initial: Record<string, boolean> = {};
         settingsSections.forEach((section) => {
@@ -72,7 +80,11 @@ export default function Settings() {
     }, []);
 
     const handleToggle = (label: string) => {
-        setToggleStates((prev) => ({ ...prev, [label]: !prev[label] }));
+        if (label === 'Dark Mode') {
+            toggleTheme();
+        } else {
+            setToggleStates((prev) => ({ ...prev, [label]: !prev[label] }));
+        }
     };
 
     const handleSignOut = async () => {
@@ -88,106 +100,125 @@ export default function Settings() {
 
     return (
         <LinearGradient
-            colors={['#0f172a', '#1e293b', '#0f172a']}
+            colors={colors.bgGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{ flex: 1 }}
         >
             <ScrollView
                 className="flex-1"
-                contentContainerStyle={{ paddingBottom: 32 }}
+                contentContainerStyle={{ paddingBottom: 48 }}
                 showsVerticalScrollIndicator={false}
             >
+                {/* Header */}
                 <View className="px-6 pb-2 pt-16">
-                    <Text className="text-2xl font-bold text-white">Settings</Text>
-                    <Text className="mt-1 text-sm text-slate-400">
-                        Manage your preferences
+                    <Text className="text-2xl font-black tracking-tight" style={{ color: colors.textPrimary }}>Settings</Text>
+                    <Text className="mt-1 text-xs font-semibold" style={{ color: colors.textSecondary }}>
+                        Manage your preferences & account
                     </Text>
                 </View>
 
-                <View className="mx-6 mt-4 flex-row items-center rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <View className="h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
-                        <Ionicons name="person" size={28} color="#34d399" />
+                {/* Profile Card */}
+                <View 
+                    className="mx-6 mt-4 flex-row items-center rounded-3xl border p-5 shadow-lg"
+                    style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+                >
+                    <View className="h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-md">
+                        <Ionicons name="person" size={26} color="#10b981" />
                     </View>
                     <View className="ml-4 flex-1">
-                        <Text className="text-base font-bold text-white">
-                            {user?.name ?? 'User'}
+                        <Text className="text-base font-black tracking-tight" style={{ color: colors.textPrimary }}>
+                            {user?.name ?? 'Explorer'}
                         </Text>
-                        <Text className="mt-0.5 text-sm text-slate-400">
+                        <Text className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: colors.textTertiary }}>
                             {user?.email ?? ''}
                         </Text>
                     </View>
-                    <Pressable className="rounded-xl bg-white/5 p-2.5 active:bg-white/10">
-                        <Ionicons name="create-outline" size={18} color="#94a3b8" />
+                    <Pressable 
+                        className="rounded-xl border p-2.5 shadow-sm"
+                        style={{ backgroundColor: colors.isDark ? 'rgba(0,0,0,0.3)' : 'rgba(15,23,42,0.05)', borderColor: colors.cardBorder }}
+                    >
+                        <Ionicons name="create-outline" size={17} color={colors.textSecondary} />
                     </Pressable>
                 </View>
 
+                {/* Settings list sections */}
                 {settingsSections.map((section) => (
                     <View key={section.title} className="px-6 pt-6">
-                        <Text className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                        <Text className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
                             {section.title}
                         </Text>
-                        <View className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-                            {section.items.map((item, idx) => (
-                                <Pressable
-                                    key={item.label}
-                                    onPress={
-                                        item.type === 'link'
-                                            ? () => handleLinkPress(item.label)
-                                            : undefined
-                                    }
-                                    className={`flex-row items-center px-4 py-3.5 active:bg-white/5 ${
-                                        idx < section.items.length - 1
-                                            ? 'border-b border-white/5'
-                                            : ''
-                                    }`}
-                                >
-                                    <View
-                                        className="mr-3 h-8 w-8 items-center justify-center rounded-lg"
-                                        style={{ backgroundColor: item.iconColor + '20' }}
+                        <View 
+                            className="overflow-hidden rounded-3xl border shadow-sm"
+                            style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+                        >
+                            {section.items.map((item, idx) => {
+                                const isItemToggleActive = item.label === 'Dark Mode' ? isDark : toggleStates[item.label];
+                                return (
+                                    <Pressable
+                                        key={item.label}
+                                        onPress={
+                                            item.type === 'link'
+                                                ? () => handleLinkPress(item.label)
+                                                : undefined
+                                        }
+                                        className="flex-row items-center px-4.5 py-4 active:bg-slate-800/40"
+                                        style={{
+                                            borderBottomColor: colors.cardBorder,
+                                            borderBottomWidth: idx < section.items.length - 1 ? 1 : 0
+                                        }}
                                     >
-                                        <Ionicons
-                                            name={item.icon}
-                                            size={17}
-                                            color={item.iconColor}
-                                        />
-                                    </View>
-                                    <Text className="flex-1 text-sm text-white">
-                                        {item.label}
-                                    </Text>
-                                    {item.type === 'toggle' ? (
-                                        <Switch
-                                            value={toggleStates[item.label]}
-                                            onValueChange={() => handleToggle(item.label)}
-                                            trackColor={{
-                                                false: '#334155',
-                                                true: '#065f46',
+                                        <View
+                                            className="mr-3.5 h-8 w-8 items-center justify-center rounded-lg border"
+                                            style={{ 
+                                                backgroundColor: item.iconColor + '10', 
+                                                borderColor: item.iconColor + '25' 
                                             }}
-                                            thumbColor={
-                                                toggleStates[item.label]
-                                                    ? '#34d399'
-                                                    : '#94a3b8'
-                                            }
-                                        />
-                                    ) : (
-                                        <Ionicons
-                                            name="chevron-forward"
-                                            size={18}
-                                            color="#475569"
-                                        />
-                                    )}
-                                </Pressable>
-                            ))}
+                                        >
+                                            <Ionicons
+                                                name={item.icon}
+                                                size={16}
+                                                color={item.iconColor}
+                                            />
+                                        </View>
+                                        <Text className="flex-1 text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                                            {item.label}
+                                        </Text>
+                                        {item.type === 'toggle' ? (
+                                            <Switch
+                                                value={isItemToggleActive}
+                                                onValueChange={() => handleToggle(item.label)}
+                                                trackColor={{
+                                                    false: colors.isDark ? '#1e293b' : 'rgba(15, 23, 42, 0.08)',
+                                                    true: 'rgba(16, 185, 129, 0.2)',
+                                                }}
+                                                thumbColor={
+                                                    isItemToggleActive
+                                                        ? '#10b981'
+                                                        : '#64748b'
+                                                }
+                                            />
+                                        ) : (
+                                            <Ionicons
+                                                name="chevron-forward"
+                                                size={16}
+                                                color={colors.textTertiary}
+                                            />
+                                        )}
+                                    </Pressable>
+                                );
+                            })}
                         </View>
                     </View>
                 ))}
 
 
+                {/* Behavior Coach Widgets */}
                 <View className="px-6 pt-6">
-                    <Text className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
-                        Behavior Coach
+                    <Text className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
+                        Coach Telemetry Warnings
                     </Text>
-                    <Text className="mb-3 text-xs text-slate-500">
+                    <Text className="mb-3.5 text-[9px] font-bold uppercase" style={{ color: colors.textTertiary }}>
                         Source: {source === 'live' ? 'Live tracked data' : 'Demo fallback data'}
                     </Text>
 
@@ -197,12 +228,16 @@ export default function Settings() {
                         .map((status) => (
                             <View
                                 key={status.goal.id}
-                                className="mb-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4"
+                                className="mb-3 rounded-2xl border p-4 shadow-sm"
+                                style={{ backgroundColor: colors.warnBg, borderColor: colors.warnBorder }}
                             >
-                                <Text className="text-xs uppercase tracking-widest text-amber-300">
-                                    Goal Alert
-                                </Text>
-                                <Text className="mt-1 text-sm text-amber-100">
+                                <View className="flex-row items-center mb-1.5">
+                                    <Ionicons name="sparkles" size={14} color="#f59e0b" />
+                                    <Text className="ml-1.5 text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.warnText }}>
+                                        Goal Alert
+                                    </Text>
+                                </View>
+                                <Text className="text-xs font-semibold leading-relaxed" style={{ color: colors.warnText }}>
                                     {status.alert}
                                 </Text>
                             </View>
@@ -211,12 +246,16 @@ export default function Settings() {
                     {report.anomalies.slice(0, 1).map((anomaly) => (
                         <View
                             key={anomaly.message}
-                            className="mb-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4"
+                            className="mb-3 rounded-2xl border p-4 shadow-sm"
+                            style={{ backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder }}
                         >
-                            <Text className="text-xs uppercase tracking-widest text-red-300">
-                                Safety Alert
-                            </Text>
-                            <Text className="mt-1 text-sm text-red-200">
+                            <View className="flex-row items-center mb-1.5">
+                                <Ionicons name="alert-circle-outline" size={14} color="#f43f5e" />
+                                <Text className="ml-1.5 text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.dangerText }}>
+                                    Safety Anomaly
+                                </Text>
+                            </View>
+                            <Text className="text-xs font-semibold leading-relaxed" style={{ color: colors.dangerText }}>
                                 {anomaly.message}
                             </Text>
                         </View>
@@ -224,13 +263,14 @@ export default function Settings() {
                 </View>
 
                 {/* ── Sign Out ── */}
-                <View className="px-6 pt-8">
+                <View className="px-6 pt-6">
                     <Pressable
                         onPress={handleSignOut}
-                        className="flex-row items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 py-4 active:bg-red-500/20"
+                        className="flex-row items-center justify-center rounded-2xl border py-4 active:bg-rose-950/20 shadow-md"
+                        style={{ backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder }}
                     >
-                        <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-                        <Text className="ml-2 text-sm font-bold text-red-400">
+                        <Ionicons name="log-out-outline" size={18} color="#f43f5e" />
+                        <Text className="ml-2 text-xs font-black uppercase tracking-wider" style={{ color: colors.dangerText }}>
                             Sign Out
                         </Text>
                     </Pressable>

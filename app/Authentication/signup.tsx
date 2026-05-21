@@ -48,11 +48,15 @@ export default function Signup() {
 
     return (
         <LinearGradient
-            colors={['#0f172a', '#1e293b', '#0f172a']}
+            colors={['#030712', '#0c1122', '#030712']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{ flex: 1 }}
         >
+            {/* Absolute Ambient Space Glows */}
+            <View className="absolute top-[-50] right-[-50] h-60 w-60 rounded-full bg-emerald-500/10 opacity-30 blur-3xl" />
+            <View className="absolute bottom-[100] left-[-50] h-80 w-80 rounded-full bg-violet-500/10 opacity-30 blur-3xl" />
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 className="flex-1"
@@ -67,242 +71,263 @@ export default function Signup() {
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
-                    <View className="mb-8 items-center">
-                        <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20">
-                            <Ionicons name="location" size={40} color="#34d399" />
+                    {/* Header Logotype */}
+                    <View className="mb-6 items-center">
+                        <View className="relative mb-4 h-20 w-20 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/20 shadow-xl shadow-emerald-500/10">
+                            {/* Inner glowing icon */}
+                            <View className="h-14 w-14 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/15">
+                                <Ionicons name="navigate" size={30} color="#34d399" />
+                            </View>
+                            {/* Active locator beacon pulse */}
+                            <View className="absolute right-0 top-0 h-4.5 w-4.5 rounded-full border border-[#0c1122] bg-emerald-400" />
                         </View>
-                        <Text className="text-3xl font-bold tracking-wider text-white">
-                            GPS Tracks
+                        <Text className="text-3xl font-black tracking-widest text-white uppercase">
+                            GPS TRACKS
                         </Text>
-                        <Text className="mt-1 text-sm tracking-wide text-slate-400">
-                            Start tracking your adventures
+                        <Text className="mt-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
+                            Initialize New Tracking Node
                         </Text>
                     </View>
 
-                    <View className="w-full max-w-[400px] self-center rounded-3xl border border-white/10 bg-white/5 p-7">
-                        <Text className="mb-1 text-xl font-bold text-white">
-                            Create Account
-                        </Text>
-                        <Text className="mb-6 text-sm text-slate-400">
-                            Join and start recording your routes
-                        </Text>
-
-                        <View className="mb-4">
-                            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
-                                Full Name
-                            </Text>
-                            <View
-                                className={`flex-row items-center rounded-xl border px-4 py-3 ${
-                                    nameFocused
-                                        ? 'border-emerald-500 bg-white/10'
-                                        : 'border-white/10 bg-white/5'
-                                }`}
-                            >
-                                <Ionicons
-                                    name="person-outline"
-                                    size={18}
-                                    color={nameFocused ? '#34d399' : '#94a3b8'}
-                                />
-                                <TextInput
-                                    className="ml-3 flex-1 text-base text-white"
-                                    value={name}
-                                    onChangeText={setName}
-                                    placeholder="John Doe"
-                                    placeholderTextColor="#64748b"
-                                    onFocus={() => setNameFocused(true)}
-                                    onBlur={() => setNameFocused(false)}
-                                />
-                            </View>
-                        </View>
-
-                        <View className="mb-4">
-                            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
-                                Email
-                            </Text>
-                            <View
-                                className={`flex-row items-center rounded-xl border px-4 py-3 ${
-                                    emailFocused
-                                        ? 'border-emerald-500 bg-white/10'
-                                        : 'border-white/10 bg-white/5'
-                                }`}
-                            >
-                                <Ionicons
-                                    name="mail-outline"
-                                    size={18}
-                                    color={emailFocused ? '#34d399' : '#94a3b8'}
-                                />
-                                <TextInput
-                                    className="ml-3 flex-1 text-base text-white"
-                                    value={email}
-                                    onChangeText={setEmail}
-                                    autoCapitalize="none"
-                                    keyboardType="email-address"
-                                    placeholder="you@example.com"
-                                    placeholderTextColor="#64748b"
-                                    onFocus={() => setEmailFocused(true)}
-                                    onBlur={() => setEmailFocused(false)}
-                                />
-                            </View>
-                        </View>
-
-                        <View className="mb-4">
-                            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
-                                Password
-                            </Text>
-                            <View
-                                className={`flex-row items-center rounded-xl border px-4 py-3 ${
-                                    passwordFocused
-                                        ? 'border-emerald-500 bg-white/10'
-                                        : 'border-white/10 bg-white/5'
-                                }`}
-                            >
-                                <Ionicons
-                                    name="lock-closed-outline"
-                                    size={18}
-                                    color={passwordFocused ? '#34d399' : '#94a3b8'}
-                                />
-                                <TextInput
-                                    className="ml-3 flex-1 text-base text-white"
-                                    value={password}
-                                    onChangeText={setPassword}
-                                    secureTextEntry={!showPassword}
-                                    placeholder="Min. 6 characters"
-                                    placeholderTextColor="#64748b"
-                                    onFocus={() => setPasswordFocused(true)}
-                                    onBlur={() => setPasswordFocused(false)}
-                                />
-                                <Pressable
-                                    onPress={() => setShowPassword(!showPassword)}
-                                    hitSlop={8}
-                                >
-                                    <Ionicons
-                                        name={
-                                            showPassword
-                                                ? 'eye-off-outline'
-                                                : 'eye-outline'
-                                        }
-                                        size={20}
-                                        color="#94a3b8"
-                                    />
-                                </Pressable>
-                            </View>
-                        </View>
-
-                        <View className="mb-5">
-                            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
-                                Confirm Password
-                            </Text>
-                            <View
-                                className={`flex-row items-center rounded-xl border px-4 py-3 ${
-                                    confirmFocused
-                                        ? 'border-emerald-500 bg-white/10'
-                                        : 'border-white/10 bg-white/5'
-                                }`}
-                            >
-                                <Ionicons
-                                    name="lock-closed-outline"
-                                    size={18}
-                                    color={confirmFocused ? '#34d399' : '#94a3b8'}
-                                />
-                                <TextInput
-                                    className="ml-3 flex-1 text-base text-white"
-                                    value={confirmPassword}
-                                    onChangeText={setConfirmPassword}
-                                    secureTextEntry={!showConfirm}
-                                    placeholder="Re-enter password"
-                                    placeholderTextColor="#64748b"
-                                    onFocus={() => setConfirmFocused(true)}
-                                    onBlur={() => setConfirmFocused(false)}
-                                />
-                                <Pressable
-                                    onPress={() => setShowConfirm(!showConfirm)}
-                                    hitSlop={8}
-                                >
-                                    <Ionicons
-                                        name={
-                                            showConfirm
-                                                ? 'eye-off-outline'
-                                                : 'eye-outline'
-                                        }
-                                        size={20}
-                                        color="#94a3b8"
-                                    />
-                                </Pressable>
-                            </View>
-                        </View>
-
-                        {/* ── Error Message ── */}
-                        {!!displayError && (
-                            <View className="mb-4 flex-row items-center rounded-xl bg-red-500/10 px-4 py-3">
-                                <Ionicons
-                                    name="alert-circle-outline"
-                                    size={18}
-                                    color="#ef4444"
-                                />
-                                <Text className="ml-2 text-sm text-red-400">
-                                    {displayError}
-                                </Text>
-                            </View>
-                        )}
-
-                        {/* ── Sign Up Button ── */}
-                        <Pressable
-                            className="items-center rounded-xl bg-emerald-500 py-4 active:bg-emerald-600"
-                            onPress={handleSignup}
-                            disabled={loading}
+                    {/* Authentication Glass Card */}
+                    <View className="w-full max-w-[400px] self-center overflow-hidden rounded-[32px] border border-white/10 bg-slate-900/30 shadow-2xl">
+                        <LinearGradient
+                            colors={['rgba(30, 41, 59, 0.4)', 'rgba(15, 23, 42, 0.6)']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={{ padding: 28 }}
                         >
-                            <View className="flex-row items-center">
-                                {loading ? (
-                                    <ActivityIndicator size="small" color="#fff" />
+                            <Text className="text-xl font-black text-white tracking-tight">
+                                REGISTER PROFILE
+                            </Text>
+                            <Text className="mb-6 mt-0.5 text-xs font-semibold text-slate-400">
+                                Connect your terminal to the spatial datastore
+                            </Text>
+
+                            {/* Full Name Input */}
+                            <View className="mb-4">
+                                <Text className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                    Operator Full Name
+                                </Text>
+                                <View
+                                    className={`flex-row items-center rounded-2xl border px-4 py-3.5 transition-all duration-200 ${
+                                        nameFocused
+                                            ? 'border-emerald-500/50 bg-emerald-950/10 shadow-emerald-500/5'
+                                            : 'border-white/5 bg-slate-950/40'
+                                    }`}
+                                >
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={18}
+                                        color={nameFocused ? '#34d399' : '#64748b'}
+                                    />
+                                    <TextInput
+                                        className="ml-3 flex-1 text-sm font-semibold text-white"
+                                        value={name}
+                                        onChangeText={setName}
+                                        placeholder="John Doe"
+                                        placeholderTextColor="#475569"
+                                        onFocus={() => setNameFocused(true)}
+                                        onBlur={() => setNameFocused(false)}
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Email Input */}
+                            <View className="mb-4">
+                                <Text className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                    Identity / Email
+                                </Text>
+                                <View
+                                    className={`flex-row items-center rounded-2xl border px-4 py-3.5 transition-all duration-200 ${
+                                        emailFocused
+                                            ? 'border-emerald-500/50 bg-emerald-950/10 shadow-emerald-500/5'
+                                            : 'border-white/5 bg-slate-950/40'
+                                    }`}
+                                >
+                                    <Ionicons
+                                        name="mail-outline"
+                                        size={18}
+                                        color={emailFocused ? '#34d399' : '#64748b'}
+                                    />
+                                    <TextInput
+                                        className="ml-3 flex-1 text-sm font-semibold text-white"
+                                        value={email}
+                                        onChangeText={setEmail}
+                                        autoCapitalize="none"
+                                        keyboardType="email-address"
+                                        placeholder="explorer@gps.io"
+                                        placeholderTextColor="#475569"
+                                        onFocus={() => setEmailFocused(true)}
+                                        onBlur={() => setEmailFocused(false)}
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Password Input */}
+                            <View className="mb-4">
+                                <Text className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                    Security Passcode
+                                </Text>
+                                <View
+                                    className={`flex-row items-center rounded-2xl border px-4 py-3.5 transition-all duration-200 ${
+                                        passwordFocused
+                                            ? 'border-emerald-500/50 bg-emerald-950/10 shadow-emerald-500/5'
+                                            : 'border-white/5 bg-slate-950/40'
+                                    }`}
+                                >
+                                    <Ionicons
+                                        name="lock-closed-outline"
+                                        size={18}
+                                        color={passwordFocused ? '#34d399' : '#64748b'}
+                                    />
+                                    <TextInput
+                                        className="ml-3 flex-1 text-sm font-semibold text-white"
+                                        value={password}
+                                        onChangeText={setPassword}
+                                        secureTextEntry={!showPassword}
+                                        placeholder="••••••••"
+                                        placeholderTextColor="#475569"
+                                        onFocus={() => setPasswordFocused(true)}
+                                        onBlur={() => setPasswordFocused(false)}
+                                    />
+                                    <Pressable
+                                        onPress={() => setShowPassword(!showPassword)}
+                                        hitSlop={8}
+                                    >
+                                        <Ionicons
+                                            name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                                            size={18}
+                                            color="#64748b"
+                                        />
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            {/* Confirm Password Input */}
+                            <View className="mb-6">
+                                <Text className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                    Confirm passcode
+                                </Text>
+                                <View
+                                    className={`flex-row items-center rounded-2xl border px-4 py-3.5 transition-all duration-200 ${
+                                        confirmFocused
+                                            ? 'border-emerald-500/50 bg-emerald-950/10 shadow-emerald-500/5'
+                                            : 'border-white/5 bg-slate-950/40'
+                                    }`}
+                                >
+                                    <Ionicons
+                                        name="lock-closed-outline"
+                                        size={18}
+                                        color={confirmFocused ? '#34d399' : '#64748b'}
+                                    />
+                                    <TextInput
+                                        className="ml-3 flex-1 text-sm font-semibold text-white"
+                                        value={confirmPassword}
+                                        onChangeText={setConfirmPassword}
+                                        secureTextEntry={!showConfirm}
+                                        placeholder="••••••••"
+                                        placeholderTextColor="#475569"
+                                        onFocus={() => setConfirmFocused(true)}
+                                        onBlur={() => setConfirmFocused(false)}
+                                    />
+                                    <Pressable
+                                        onPress={() => setShowConfirm(!showConfirm)}
+                                        hitSlop={8}
+                                    >
+                                        <Ionicons
+                                            name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
+                                            size={18}
+                                            color="#64748b"
+                                        />
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            {/* Error Badge */}
+                            {!!displayError && (
+                                <View className="mb-5 flex-row items-center rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3">
+                                    <Ionicons
+                                        name="alert-circle-outline"
+                                        size={16}
+                                        color="#f43f5e"
+                                    />
+                                    <Text className="ml-2 text-xs font-bold text-rose-300 flex-1 leading-snug">
+                                        {displayError}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Submit Pill Button with Linear Gradient */}
+                            <View className="overflow-hidden rounded-2xl">
+                                <Pressable
+                                    onPress={handleSignup}
+                                    disabled={loading}
+                                    className="active:opacity-90"
+                                >
+                                    <LinearGradient
+                                        colors={['#10b981', '#059669']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={{ paddingVertical: 15, alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <View className="flex-row items-center justify-center">
+                                            {loading ? (
+                                                <ActivityIndicator size="small" color="#fff" />
+                                            ) : (
+                                                <Ionicons
+                                                    name="person-add-outline"
+                                                    size={18}
+                                                    color="#fff"
+                                                />
+                                            )}
+                                            <Text className="ml-2 text-sm font-black uppercase tracking-widest text-white">
+                                                {loading ? 'Registering...' : 'Register Terminal'}
+                                            </Text>
+                                        </View>
+                                    </LinearGradient>
+                                </Pressable>
+                            </View>
+
+                            {/* Divider */}
+                            <View className="my-6 flex-row items-center">
+                                <View className="h-[1px] flex-1 bg-white/5" />
+                                <Text className="mx-4 text-[9px] font-black uppercase tracking-widest text-slate-600">
+                                    OR SECURE SYNC
+                                </Text>
+                                <View className="h-[1px] flex-1 bg-white/5" />
+                            </View>
+
+                            {/* Google Sign-Up Button */}
+                            <Pressable
+                                className="flex-row items-center justify-center rounded-2xl border border-white/10 bg-slate-950/40 py-3.5 active:bg-slate-950/60"
+                                onPress={handleGoogleSignIn}
+                                disabled={googleLoading}
+                            >
+                                {googleLoading ? (
+                                    <ActivityIndicator size="small" color="#34d399" />
                                 ) : (
                                     <Ionicons
-                                        name="person-add-outline"
-                                        size={20}
-                                        color="#fff"
+                                        name="logo-google"
+                                        size={18}
+                                        color="#cbd5e1"
                                     />
                                 )}
-                                <Text className="ml-2 text-base font-bold text-white">
-                                    {loading ? 'Creating Account...' : 'Create Account'}
+                                <Text className="ml-3 text-xs font-black uppercase tracking-wider text-slate-300">
+                                    Sign up via Google
                                 </Text>
-                            </View>
-                        </Pressable>
-
-                        {/* ── Divider ── */}
-                        <View className="my-6 flex-row items-center">
-                            <View className="h-px flex-1 bg-white/10" />
-                            <Text className="mx-4 text-xs text-slate-500">OR</Text>
-                            <View className="h-px flex-1 bg-white/10" />
-                        </View>
-
-                        {/* ── Google Sign-Up Button ── */}
-                        <Pressable
-                            className="flex-row items-center justify-center rounded-xl border border-white/10 bg-white/5 py-4 active:bg-white/10"
-                            onPress={handleGoogleSignIn}
-                            disabled={googleLoading}
-                        >
-                            {googleLoading ? (
-                                <ActivityIndicator size="small" color="#94a3b8" />
-                            ) : (
-                                <Ionicons
-                                    name="logo-google"
-                                    size={20}
-                                    color="#94a3b8"
-                                />
-                            )}
-                            <Text className="ml-3 text-base font-semibold text-slate-300">
-                                Sign up with Google
-                            </Text>
-                        </Pressable>
+                            </Pressable>
+                        </LinearGradient>
                     </View>
 
-                    {/* ── Footer ── */}
-                    <View className="mt-8 flex-row self-center">
-                        <Text className="text-sm text-slate-500">
-                            Already have an account?{' '}
+                    {/* Footer redacting link */}
+                    <View className="mt-8 flex-row items-center self-center">
+                        <Text className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                            Already registered?{' '}
                         </Text>
-                        <Pressable onPress={() => router.back()}>
-                            <Text className="text-sm font-bold text-emerald-400">
-                                Sign In
+                        <Pressable onPress={() => router.back()} className="active:opacity-75">
+                            <Text className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                                Authorize Entry
                             </Text>
                         </Pressable>
                     </View>

@@ -681,3 +681,96 @@ export function generateIntelligenceReport(
         aiInsight,
     };
 }
+
+export interface SuggestedPlace {
+    id: string;
+    latitude: number;
+    longitude: number;
+    pingCount: number;
+    estimatedName: string;
+    category: LocationCategory;
+}
+
+function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+export function suggestPlacesFromPings(
+    pings: any[], // raw TrackedLocationPing[]
+    existingPlaces: any[], // KnownPlace[]
+    minPingsThreshold = 5
+): SuggestedPlace[] {
+    // Filter for pings categorized as 'other' (not matched to any existing geofence)
+    const eligiblePings = pings.filter(p => p.category === 'other');
+    if (eligiblePings.length === 0) return [];
+
+    // Grid clustering: group by rounded coordinate grids (~80-100 meters)
+    const gridPrecision = 0.0008; 
+    const gridGroups: Record<string, typeof eligiblePings> = {};
+
+    for (const ping of eligiblePings) {
+        const latGrid = Math.round(ping.latitude / gridPrecision);
+        const lonGrid = Math.round(ping.longitude / gridPrecision);
+        const key = `${latGrid},${lonGrid}`;
+
+        if (!gridGroups[key]) {
+            gridGroups[key] = [];
+        }
+        gridGroups[key].push(ping);
+    }
+
+    const suggestions: SuggestedPlace[] = [];
+
+    for (const [key, pingsInCell] of Object.entries(gridGroups)) {
+        if (pingsInCell.length < minPingsThreshold) continue;
+
+        // Calculate centroid
+        let sumLat = 0;
+        let sumLon = 0;
+        for (const p of pingsInCell) {
+            sumLat += p.latitude;
+            sumLon += p.longitude;
+        }
+        const centroidLat = sumLat / pingsInCell.length;
+        const centroidLon = sumLon / pingsInCell.length;
+
+        // Check if this cluster is already close to any existing known place
+        let tooClose = false;
+        for (const place of existingPlaces) {
+            const dist = haversineDistanceMeters(centroidLat, centroidLon, place.latitude, place.longitude);
+            // If centroid is within existing place's radius (or within 200m), skip suggesting it
+            if (dist <= Math.max(place.radiusMeters || 200, 200)) {
+                tooClose = true;
+                break;
+            }
+        }
+
+        if (tooClose) continue;
+
+        // Estimate a friendly name based on centroid coordinates
+        const estimatedName = `Frequent Spot (${centroidLat.toFixed(4)}, ${centroidLon.toFixed(4)})`;
+
+        suggestions.push({
+            id: `suggested-${key}`,
+            latitude: centroidLat,
+            longitude: centroidLon,
+            pingCount: pingsInCell.length,
+            estimatedName,
+            category: 'work', // Default suggested category
+        });
+    }
+
+    // Sort suggestions by ping count descending
+    return suggestions.sort((a, b) => b.pingCount - a.pingCount);
+}
+

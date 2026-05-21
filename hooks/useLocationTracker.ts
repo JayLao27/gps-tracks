@@ -22,17 +22,36 @@ export function useLocationTracker() {
     const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
     const [lastPing, setLastPing] = useState<TrackedLocationPing | null>(null);
     const [error, setError] = useState('');
+    const [distanceFromPrevious, setDistanceFromPrevious] = useState<number>(0);
+    const [stationaryTime, setStationaryTime] = useState<number>(0);
+    const [activePlace, setActivePlace] = useState<string>('');
+    const [speed, setSpeed] = useState<number | null>(null);
+    const [savedSessionsCount, setSavedSessionsCount] = useState<number>(0);
 
     const startTracking = useCallback(async () => {
         if (subscriptionRef.current) return;
 
         setError('');
+        setDistanceFromPrevious(0);
+        setStationaryTime(0);
+        setActivePlace('');
+        setSpeed(null);
+        setSavedSessionsCount(0);
         sessionPingsRef.current = [];
 
         const subscription = await startForegroundLocationTracking(
             (ping) => {
                 sessionPingsRef.current.push(ping);
                 setLastPing(ping);
+            },
+            (stay) => {
+                setDistanceFromPrevious(stay.distanceFromPrevious);
+                setStationaryTime(stay.stationaryTime);
+                setActivePlace(stay.activePlace);
+                setSpeed(stay.speed);
+                if (stay.sessionSaved) {
+                    setSavedSessionsCount((prev) => prev + 1);
+                }
             },
             (message) => {
                 setError(message);
@@ -49,9 +68,14 @@ export function useLocationTracker() {
     }, []);
 
     const stopTracking = useCallback(async () => {
-        stopForegroundLocationTracking(subscriptionRef.current);
+        await stopForegroundLocationTracking(subscriptionRef.current);
         subscriptionRef.current = null;
         setIsTracking(false);
+        setDistanceFromPrevious(0);
+        setStationaryTime(0);
+        setActivePlace('');
+        setSpeed(null);
+        setSavedSessionsCount(0);
 
         const pings = sessionPingsRef.current;
 
@@ -222,6 +246,11 @@ export function useLocationTracker() {
         isBackgroundTracking,
         lastPing,
         error,
+        distanceFromPrevious,
+        stationaryTime,
+        activePlace,
+        speed,
+        savedSessionsCount,
         startTracking,
         stopTracking,
         startBackgroundTracking,

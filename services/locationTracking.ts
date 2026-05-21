@@ -150,8 +150,295 @@ export async function persistTrackedPing(
     return ping;
 }
 
+export interface LocationRecord {
+    id?: number;
+    userId: string;
+    latitude: number;
+    longitude: number;
+    speed: number | null;
+    createdAt: string;
+}
+
+export interface VisitSession {
+    id?: number;
+    userId: string;
+    placeName: string;
+    enteredAt: string;
+    exitedAt: string;
+    durationMinutes: number;
+}
+
+const LOCAL_LOCATIONS_KEY = 'gps_tracks.locations';
+const LOCAL_VISITS_KEY = 'gps_tracks.visits';
+
+let lastLocationCoords: { latitude: number; longitude: number; timestamp: string } | null = null;
+let stationaryTimeMs = 0;
+let activeSession: { placeName: string; enteredAt: string; lastActiveAt: string } | null = null;
+
+export function resetStayState() {
+    lastLocationCoords = null;
+    stationaryTimeMs = 0;
+    activeSession = null;
+}
+
+export async function readLocalLocations(): Promise<LocationRecord[]> {
+    const json = await AsyncStorage.getItem(LOCAL_LOCATIONS_KEY);
+    if (!json) return [];
+    try {
+        return JSON.parse(json) as LocationRecord[];
+    } catch {
+        return [];
+    }
+}
+
+export async function writeLocalLocations(locations: LocationRecord[]): Promise<void> {
+    await AsyncStorage.setItem(LOCAL_LOCATIONS_KEY, JSON.stringify(locations));
+}
+
+export async function readLocalVisits(): Promise<VisitSession[]> {
+    const json = await AsyncStorage.getItem(LOCAL_VISITS_KEY);
+    if (!json) return [];
+    try {
+        return JSON.parse(json) as VisitSession[];
+    } catch {
+        return [];
+    }
+}
+
+export async function writeLocalVisits(visits: VisitSession[]): Promise<void> {
+    await AsyncStorage.setItem(LOCAL_VISITS_KEY, JSON.stringify(visits));
+}
+
+export async function persistLocationToDb(
+    latitude: number,
+    longitude: number,
+    speed: number | null,
+    timestamp: string = new Date().toISOString()
+): Promise<LocationRecord> {
+    const userId = await getCurrentUserId();
+    const record: LocationRecord = {
+        userId: userId ?? 'anon',
+        latitude,
+        longitude,
+        speed,
+        createdAt: timestamp,
+    };
+
+    try {
+        if (userId) {
+            const { error } = await supabase.from('locations').insert({
+                user_id: userId,
+                latitude: record.latitude,
+                longitude: record.longitude,
+                speed: record.speed,
+                created_at: record.createdAt,
+            });
+
+            if (error) {
+                const existing = await readLocalLocations();
+                await writeLocalLocations([...existing, record].slice(-3000));
+            }
+        } else {
+            const existing = await readLocalLocations();
+            await writeLocalLocations([...existing, record].slice(-3000));
+        }
+    } catch {
+        const existing = await readLocalLocations();
+        await writeLocalLocations([...existing, record].slice(-3000));
+    }
+
+    return record;
+}
+
+export async function persistVisitSessionToDb(
+    placeName: string,
+    enteredAt: string,
+    exitedAt: string,
+    durationMinutes: number
+): Promise<VisitSession> {
+    const userId = await getCurrentUserId();
+    const visit: VisitSession = {
+        userId: userId ?? 'anon',
+        placeName,
+        enteredAt,
+        exitedAt,
+        durationMinutes,
+    };
+
+    try {
+        if (userId) {
+            const { error } = await supabase.from('visits').insert({
+                user_id: userId,
+                place_name: visit.placeName,
+                entered_at: visit.enteredAt,
+                exited_at: visit.exitedAt,
+                duration_minutes: visit.durationMinutes,
+            });
+
+            if (error) {
+                const existing = await readLocalVisits();
+                await writeLocalVisits([...existing, visit].slice(-500));
+            }
+        } else {
+            const existing = await readLocalVisits();
+            await writeLocalVisits([...existing, visit].slice(-500));
+        }
+    } catch {
+        const existing = await readLocalVisits();
+        await writeLocalVisits([...existing, visit].slice(-500));
+    }
+
+    return visit;
+}
+
+export async function getTrackedLocations(days = 21): Promise<LocationRecord[]> {
+    const userId = await getCurrentUserId();
+    if (userId) {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+
+        const { data, error } = await supabase
+            .from('locations')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('created_at', since.toISOString())
+            .order('created_at', { ascending: true });
+
+        if (!error && data) {
+            return data.map((row: any) => ({
+                id: row.id,
+                userId: row.user_id,
+                latitude: row.latitude,
+                longitude: row.longitude,
+                speed: row.speed,
+                createdAt: row.created_at,
+            }));
+        }
+    }
+
+    // Local fallback
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const locations = await readLocalLocations();
+    return locations
+        .filter((loc) => new Date(loc.createdAt).getTime() >= since.getTime())
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+export async function getTrackedVisitsList(days = 21): Promise<VisitSession[]> {
+    const userId = await getCurrentUserId();
+    if (userId) {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+
+        const { data, error } = await supabase
+            .from('visits')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('entered_at', since.toISOString())
+            .order('entered_at', { ascending: false });
+
+        if (!error && data) {
+            return data.map((row: any) => ({
+                id: row.id,
+                userId: row.user_id,
+                placeName: row.place_name,
+                enteredAt: row.entered_at,
+                exitedAt: row.exited_at,
+                durationMinutes: row.duration_minutes,
+            }));
+        }
+    }
+
+    // Local fallback
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const visits = await readLocalVisits();
+    return visits
+        .filter((v) => new Date(v.enteredAt).getTime() >= since.getTime())
+        .sort((a, b) => new Date(b.enteredAt).getTime() - new Date(a.enteredAt).getTime());
+}
+
+export async function processStayDetection(
+    latitude: number,
+    longitude: number,
+    speed: number | null,
+    timestamp: string
+): Promise<{
+    distanceFromPrevious: number;
+    stationaryTime: number;
+    sessionSaved: boolean;
+    activePlace: string;
+} | null> {
+    const { locationName } = await resolvePlace(latitude, longitude);
+    let distanceFromPrevious = 0;
+    let elapsedMs = 0;
+    let sessionSaved = false;
+
+    if (lastLocationCoords) {
+        distanceFromPrevious = distanceMeters(
+            lastLocationCoords.latitude,
+            lastLocationCoords.longitude,
+            latitude,
+            longitude
+        );
+        elapsedMs = new Date(timestamp).getTime() - new Date(lastLocationCoords.timestamp).getTime();
+
+        if (distanceFromPrevious < 20) {
+            stationaryTimeMs += elapsedMs;
+        } else {
+            stationaryTimeMs = 0;
+        }
+    }
+
+    lastLocationCoords = { latitude, longitude, timestamp };
+
+    // Session logic
+    if (!activeSession) {
+        activeSession = {
+            placeName: locationName,
+            enteredAt: timestamp,
+            lastActiveAt: timestamp,
+        };
+    } else {
+        const samePlace = activeSession.placeName === locationName;
+        // If they are in the same place or stationary, we stay in the active session
+        if (samePlace || distanceFromPrevious < 20) {
+            activeSession.lastActiveAt = timestamp;
+        } else {
+            // End active session & save
+            const durationMs = new Date(activeSession.lastActiveAt).getTime() - new Date(activeSession.enteredAt).getTime();
+            const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
+
+            await persistVisitSessionToDb(
+                activeSession.placeName,
+                activeSession.enteredAt,
+                activeSession.lastActiveAt,
+                durationMinutes
+            );
+            sessionSaved = true;
+
+            // Start new session
+            activeSession = {
+                placeName: locationName,
+                enteredAt: timestamp,
+                lastActiveAt: timestamp,
+            };
+            stationaryTimeMs = 0;
+        }
+    }
+
+    return {
+        distanceFromPrevious,
+        stationaryTime: Math.round(stationaryTimeMs / 1000), // in seconds
+        sessionSaved,
+        activePlace: activeSession.placeName,
+    };
+}
+
 export async function startForegroundLocationTracking(
     onPing: (ping: TrackedLocationPing) => void,
+    onStayUpdate?: (stay: { distanceFromPrevious: number; stationaryTime: number; activePlace: string; speed: number | null; sessionSaved: boolean }) => void,
     onError?: (message: string) => void
 ): Promise<Location.LocationSubscription | null> {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -161,21 +448,55 @@ export async function startForegroundLocationTracking(
         return null;
     }
 
+    resetStayState();
+
     const subscription = await Location.watchPositionAsync(
         {
-            accuracy: Location.Accuracy.Balanced,
-            distanceInterval: 50,
-            timeInterval: 60_000,
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 10,
+            timeInterval: 10000,
         },
         async (position) => {
             try {
+                const timestampStr = new Date(position.timestamp).toISOString();
+                const speed = position.coords.speed !== undefined && position.coords.speed !== null ? position.coords.speed : null;
+
+                // 1. Persist classic ping
                 const ping = await persistTrackedPing(
                     position.coords.latitude,
                     position.coords.longitude,
-                    new Date(position.timestamp).toISOString()
+                    timestampStr
                 );
+
+                // 2. Persist to new locations table
+                await persistLocationToDb(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    speed,
+                    timestampStr
+                );
+
+                // 3. Process stay detection
+                const stayResult = await processStayDetection(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    speed,
+                    timestampStr
+                );
+
+                if (stayResult && onStayUpdate) {
+                    onStayUpdate({
+                        distanceFromPrevious: stayResult.distanceFromPrevious,
+                        stationaryTime: stayResult.stationaryTime,
+                        activePlace: stayResult.activePlace,
+                        speed,
+                        sessionSaved: stayResult.sessionSaved,
+                    });
+                }
+
                 onPing(ping);
-            } catch {
+            } catch (err) {
+                console.error(err);
                 onError?.('Unable to save location update.');
             }
         }
@@ -184,9 +505,9 @@ export async function startForegroundLocationTracking(
     return subscription;
 }
 
-export function stopForegroundLocationTracking(
+export async function stopForegroundLocationTracking(
     subscription: Location.LocationSubscription | null
-): void {
+): Promise<void> {
     if (!subscription) {
         return;
     }
@@ -197,6 +518,24 @@ export function stopForegroundLocationTracking(
         // Some expo-location / React Native version combinations throw here due to
         // an internal event emitter API mismatch. We swallow this to avoid a crash.
     }
+
+    // Save final open session if active when tracking stops
+    if (activeSession) {
+        try {
+            const durationMs = new Date(activeSession.lastActiveAt).getTime() - new Date(activeSession.enteredAt).getTime();
+            const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
+            await persistVisitSessionToDb(
+                activeSession.placeName,
+                activeSession.enteredAt,
+                activeSession.lastActiveAt,
+                durationMinutes
+            );
+        } catch (e) {
+            console.error('Failed to save final visit session on stop:', e);
+        }
+    }
+
+    resetStayState();
 }
 
 async function fetchSupabasePings(days: number): Promise<TrackedLocationPing[]> {

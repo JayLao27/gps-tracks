@@ -1,25 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { ThemeProvider, useTheme } from '@/hooks/useTheme';
 
-export default function SystemLayout() {
+function TabsLayout() {
+    const { colors } = useTheme();
+
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {
-                    backgroundColor: '#0f172a',
-                    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+                    backgroundColor: colors.tabBarBg,
+                    borderTopColor: colors.tabBarBorder,
                     borderTopWidth: 1,
-                    height: 70,
-                    paddingBottom: 10,
-                    paddingTop: 8,
+                    height: 76,
+                    paddingBottom: 14,
+                    paddingTop: 10,
+                    elevation: 0,
+                    shadowOpacity: 0,
                 },
-                tabBarActiveTintColor: '#34d399',
-                tabBarInactiveTintColor: '#94a3b8',
+                tabBarActiveTintColor: '#10b981',
+                tabBarInactiveTintColor: colors.tabBarInactive,
                 tabBarLabelStyle: {
                     fontSize: 11,
-                    fontWeight: '600',
-                    letterSpacing: 0.3,
+                    fontWeight: '700',
+                    letterSpacing: 0.5,
                 },
             }}
         >
@@ -62,9 +67,20 @@ export default function SystemLayout() {
             <Tabs.Screen
                 name="places"
                 options={{
-                    href: null,
+                    title: 'Places',
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="pin-outline" size={size} color={color} />
+                    ),
                 }}
             />
         </Tabs>
+    );
+}
+
+export default function SystemLayout() {
+    return (
+        <ThemeProvider>
+            <TabsLayout />
+        </ThemeProvider>
     );
 }
