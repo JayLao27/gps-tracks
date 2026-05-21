@@ -31,7 +31,7 @@ function toRadians(value: number): number {
     return (value * Math.PI) / 180;
 }
 
-function distanceMeters(
+export function distanceMeters(
     lat1: number,
     lon1: number,
     lat2: number,

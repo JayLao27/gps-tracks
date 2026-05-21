@@ -1,14 +1,14 @@
 import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 function toHours(minutes: number): string {
     return `${(minutes / 60).toFixed(1)}h`;
 }
 
 export default function Insights() {
-    const { report, source, loading, refresh } = useIntelligenceReport();
+    const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice } = useIntelligenceReport();
 
     return (
         <LinearGradient
@@ -39,6 +39,79 @@ export default function Insights() {
                         </Text>
                     </Pressable>
                 </View>
+
+                {/* AI Habit Coach Card */}
+                <View className="mx-6 mt-4 rounded-3xl border border-indigo-400/20 bg-indigo-500/10 p-5">
+                    <View className="flex-row items-center justify-between">
+                        <View className="flex-row items-center">
+                            <Ionicons name="sparkles" size={18} color="#818cf8" />
+                            <Text className="ml-2 text-base font-bold text-white">
+                                AI Habit Coach
+                            </Text>
+                        </View>
+                        <View className="flex-row items-center rounded-full bg-emerald-500/10 border border-emerald-400/20 px-2 py-0.5">
+                            <View className="h-1.5 w-1.5 rounded-full bg-emerald-400 mr-1.5" />
+                            <Text className="text-[10px] font-semibold text-emerald-300 uppercase tracking-wider">
+                                {aiInsight.coachName || 'Active'}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {aiLoading ? (
+                        <View className="py-8 items-center justify-center">
+                            <ActivityIndicator size="small" color="#818cf8" />
+                            <Text className="mt-3 text-xs text-indigo-200">
+                                Re-analyzing behavioral footprints...
+                            </Text>
+                        </View>
+                    ) : (
+                        <View className="mt-3">
+                            <Text className="text-sm leading-relaxed text-slate-200 bg-white/5 border border-white/5 rounded-2xl p-4 mb-4 italic">
+                                "{aiInsight.narrative}"
+                            </Text>
+
+                            <View className="mb-4">
+                                <View className="flex-row items-center">
+                                    <Ionicons name="compass-outline" size={16} color="#c084fc" />
+                                    <Text className="ml-2 text-xs font-semibold uppercase tracking-wider text-purple-300">
+                                        Focus Strategy
+                                    </Text>
+                                </View>
+                                <Text className="mt-1 ml-6 text-sm text-slate-300 leading-relaxed">
+                                    {aiInsight.focusRecommendation}
+                                </Text>
+                            </View>
+
+                            <View className="mb-2">
+                                <View className="flex-row items-center">
+                                    <Ionicons name="time-outline" size={16} color="#fb7185" />
+                                    <Text className="ml-2 text-xs font-semibold uppercase tracking-wider text-rose-300">
+                                        Circadian Sync
+                                    </Text>
+                                </View>
+                                <Text className="mt-1 ml-6 text-sm text-slate-300 leading-relaxed">
+                                    {aiInsight.routineRecommendation}
+                                </Text>
+                            </View>
+
+                            <View className="mt-4 pt-3 border-t border-indigo-400/10 flex-row items-center justify-between">
+                                <Text className="text-[10px] text-slate-400">
+                                    Synced: {aiInsight.timestamp}
+                                </Text>
+                                <Pressable
+                                    onPress={refreshAiAdvice}
+                                    className="flex-row items-center rounded-xl bg-indigo-500/20 border border-indigo-400/30 px-3 py-1.5 active:bg-indigo-600/30"
+                                >
+                                    <Ionicons name="refresh-outline" size={12} color="#a5b4fc" />
+                                    <Text className="ml-1 text-[11px] font-bold text-indigo-200">
+                                        Consult Coach
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        </View>
+                    )}
+                </View>
+
 
                 <View className="mx-6 mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
                     <Text className="text-xs uppercase tracking-widest text-emerald-300">

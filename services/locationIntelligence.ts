@@ -68,6 +68,14 @@ export interface RoutinePrediction {
     schedulePrediction: string;
 }
 
+export interface AiInsight {
+    narrative: string;
+    focusRecommendation: string;
+    routineRecommendation: string;
+    coachName: string;
+    timestamp: string;
+}
+
 export interface IntelligenceReport {
     patterns: PatternInsight[];
     productivity: ProductivitySummary;
@@ -75,6 +83,7 @@ export interface IntelligenceReport {
     anomalies: Anomaly[];
     heatmap: HeatmapPoint[];
     prediction: RoutinePrediction;
+    aiInsight: AiInsight;
 }
 
 const PRODUCTIVE_CATEGORIES: LocationCategory[] = ['study', 'work', 'gym'];
@@ -542,18 +551,133 @@ function predictRoutine(visits: LocationVisit[]): RoutinePrediction {
     };
 }
 
+export function generateLocalAiInsight(
+    productivity: ProductivitySummary,
+    prediction: RoutinePrediction,
+    anomalies: Anomaly[]
+): AiInsight {
+    let narrative = '';
+    let focusRecommendation = '';
+    let routineRecommendation = '';
+    
+    const score = productivity.score;
+    
+    if (score >= 70) {
+        narrative = `Excellent behavioral focus! You are maintaining a highly productive spatial discipline, spending the majority of your time at study and work hubs. Your best focus hours are concentrated around ${productivity.bestWindow}.`;
+        focusRecommendation = "You are in a high-efficiency zone. Protect your deep focus windows and keep distractions minimal during these periods.";
+    } else if (score >= 45) {
+        narrative = `Moderate focus trends. You are striking a solid balance between productive spatial targets and social downtime. However, your time spent in non-productive zones (around ${productivity.nonProductivePercent}%) is slightly diluting your routine momentum.`;
+        focusRecommendation = "Try scheduling dedicated 90-minute study or gym blocks and log them in your custom places to train your spatial focus habits.";
+    } else {
+        narrative = `Spatial fragmentation alert. Your current spatial routine shows significant dilution, with over ${productivity.nonProductivePercent}% of your time spent in unscheduled or social locations. This pattern suggests potential procrastination habits or unstructured days.`;
+        focusRecommendation = "Pick one designated location (like a library or office) and commit to spending at least 2 hours there tomorrow. Physical environment shifts are highly effective in overriding procrastination.";
+    }
+
+    if (anomalies.length > 0) {
+        const firstAnomaly = anomalies[0];
+        narrative += ` ${firstAnomaly.message}`;
+        
+        if (firstAnomaly.type === 'new_place_unusual_hour') {
+            routineRecommendation = "Late-night location changes disrupt circadian rhythms. Try planning a consistent winding-down routine to protect next-day cognitive performance.";
+        } else {
+            routineRecommendation = "Extended stays in a single location can lead to fatigue. Try integrating micro-breaks (e.g., a brief walk) every 90 minutes to maintain alertness.";
+        }
+    } else {
+        routineRecommendation = `Circadian sync high. Your routine shows steady regular habits. Our predictive model expects you to next visit ${prediction.nextLikelyLocation} with a confidence of ${prediction.confidence}%.`;
+    }
+
+    return {
+        narrative,
+        focusRecommendation,
+        routineRecommendation,
+        coachName: "Antigravity Habit Coach",
+        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    };
+}
+
+export async function fetchGeminiAiInsight(
+    productivity: ProductivitySummary,
+    prediction: RoutinePrediction,
+    anomalies: Anomaly[],
+    customApiKey?: string
+): Promise<AiInsight | null> {
+    const apiKey = customApiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    if (!apiKey) return null;
+
+    try {
+        const stats = {
+            productivityScore: productivity.score,
+            productivePercent: productivity.productivePercent,
+            nonProductivePercent: productivity.nonProductivePercent,
+            bestWindow: productivity.bestWindow,
+            nextLikelyLocation: prediction.nextLikelyLocation,
+            predictionConfidence: prediction.confidence,
+            anomalies: anomalies.map(a => a.message),
+        };
+
+        const prompt = `You are a world-class AI Behavioral Coach. Analyze this user's location tracking history statistics:
+${JSON.stringify(stats, null, 2)}
+
+Provide a highly personalized behavioral coaching summary in JSON format:
+{
+  "narrative": "A 2-3 sentence personalized evaluation of their current habits.",
+  "focusRecommendation": "A 1-sentence actionable advice to improve spatial productivity.",
+  "routineRecommendation": "A 1-sentence advice regarding their schedule/routine and predictions."
+}
+Do not include any markdown formatting or extra text, output ONLY valid JSON.`;
+
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { responseMimeType: 'application/json' }
+                }),
+            }
+        );
+
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) return null;
+
+        const parsed = JSON.parse(text);
+        return {
+            narrative: parsed.narrative || '',
+            focusRecommendation: parsed.focusRecommendation || '',
+            routineRecommendation: parsed.routineRecommendation || '',
+            coachName: "Gemini Pro AI Coach",
+            timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        };
+    } catch (e) {
+        console.error('Failed to fetch Gemini AI insights:', e);
+        return null;
+    }
+}
+
 export function generateIntelligenceReport(
     visits: LocationVisit[],
     goals: GoalDefinition[] = getDefaultGoals()
 ): IntelligenceReport {
     const productivity = calculateProductivity(visits);
+    const anomalies = detectAnomalies(visits);
+    const prediction = predictRoutine(visits);
+    const heatmap = buildHeatmap(visits);
+    const patterns = detectPatterns(visits, productivity);
+    const goalStatuses = evaluateGoals(visits, goals);
+    
+    const aiInsight = generateLocalAiInsight(productivity, prediction, anomalies);
 
     return {
-        patterns: detectPatterns(visits, productivity),
+        patterns,
         productivity,
-        goalStatuses: evaluateGoals(visits, goals),
-        anomalies: detectAnomalies(visits),
-        heatmap: buildHeatmap(visits),
-        prediction: predictRoutine(visits),
+        goalStatuses,
+        anomalies,
+        heatmap,
+        prediction,
+        aiInsight,
     };
 }

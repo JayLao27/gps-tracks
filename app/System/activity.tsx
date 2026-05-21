@@ -2,7 +2,7 @@ import { useTracks } from '@/hooks/useTracks';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 const filters = ['All', 'This Week', 'This Month'];
 
