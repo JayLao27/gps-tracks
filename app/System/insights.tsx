@@ -1,14 +1,16 @@
+import { useState } from 'react';
 import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 function toHours(minutes: number): string {
     return `${(minutes / 60).toFixed(1)}h`;
 }
 
 export default function Insights() {
-    const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice } = useIntelligenceReport();
+    const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice, apiKey, saveApiKey } = useIntelligenceReport();
+    const [showKeyInput, setShowKeyInput] = useState(false);
 
     return (
         <LinearGradient
@@ -48,6 +50,12 @@ export default function Insights() {
                             <Text className="ml-2 text-base font-bold text-white">
                                 AI Habit Coach
                             </Text>
+                            <Pressable 
+                                onPress={() => setShowKeyInput(!showKeyInput)}
+                                className="ml-2 p-1 rounded-lg bg-indigo-500/10 border border-indigo-400/20 active:bg-indigo-500/20"
+                            >
+                                <Ionicons name="key-outline" size={12} color="#a5b4fc" />
+                            </Pressable>
                         </View>
                         <View className="flex-row items-center rounded-full bg-emerald-500/10 border border-emerald-400/20 px-2 py-0.5">
                             <View className="h-1.5 w-1.5 rounded-full bg-emerald-400 mr-1.5" />
@@ -56,6 +64,27 @@ export default function Insights() {
                             </Text>
                         </View>
                     </View>
+
+                    {showKeyInput && (
+                        <View className="mt-3 p-3 rounded-2xl bg-white/5 border border-white/10">
+                            <Text className="text-[11px] font-semibold text-slate-300">
+                                Gemini API Key (EXPO_PUBLIC_GEMINI_API_KEY)
+                            </Text>
+                            <TextInput
+                                className="mt-1.5 bg-[#0f172a] text-white rounded-xl px-3 py-2 text-xs border border-indigo-500/30"
+                                secureTextEntry={true}
+                                value={apiKey}
+                                onChangeText={saveApiKey}
+                                placeholder="Paste your Gemini API key here..."
+                                placeholderTextColor="#64748b"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                            <Text className="text-[9px] text-slate-400 mt-1.5 leading-normal">
+                                Get your API key for free from the Google AI Studio. The key is saved locally in secure storage and is only used to query the Gemini Pro API directly from your device.
+                            </Text>
+                        </View>
+                    )}
 
                     {aiLoading ? (
                         <View className="py-8 items-center justify-center">
