@@ -595,6 +595,13 @@ export function generateLocalAiInsight(
     };
 }
 
+// TODO: IMPROVEMENT: Extensible AI Personalities & Streaming
+// 1. Prompt Personalization: Enable users to select their AI Habit Coach's persona/attitude
+//     (e.g., tough love, encouraging, data-driven, direct).
+// 2. Token Streaming: Integrate Server-Sent Events (SSE) or WebSockets to stream the Gemini
+//     content generation response rather than waiting for the entire block.
+// 3. Offload Computation: Migrate analytical calculations (DBSCAN, routine prediction, productivity scoring)
+//     to a Web Worker / background thread, or pre-calculate them server-side via Supabase Edge Functions.
 export async function fetchGeminiAiInsight(
     productivity: ProductivitySummary,
     prediction: RoutinePrediction,
@@ -705,6 +712,10 @@ function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
     return R * c;
 }
 
+// TODO: IMPROVEMENT: Advanced Density-Based Spatial Clustering
+// Replace this simplified grid-precision cell count method with a proper density-based
+// spatial clustering algorithm like DBSCAN or OPTICS. This will better identify clusters
+// of irregular shapes and filter out noise points without relying on artificial coordinates grids.
 export function suggestPlacesFromPings(
     pings: any[], // raw TrackedLocationPing[]
     existingPlaces: any[], // KnownPlace[]
