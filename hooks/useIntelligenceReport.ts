@@ -39,6 +39,11 @@ export function useIntelligenceReport() {
         loadKey();
     }, []);
 
+    // TODO: IMPROVEMENT: Secure Storage & API Key Protection
+    // 1. Secure Storage: Use Expo SecureStore instead of unencrypted AsyncStorage to save
+    //    user-entered API keys on the device.
+    // 2. Request Throttling: Implement caching/de-bouncing on API insight requests to
+    //    prevent multiple duplicate Gemini calls during frequent component updates.
     const saveApiKey = useCallback(async (newKey: string) => {
         try {
             await AsyncStorage.setItem(STORAGE_KEY, newKey);
