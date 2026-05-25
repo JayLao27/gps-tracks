@@ -155,6 +155,12 @@ export function useLocationTracker() {
             paceStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} / km`;
         }
 
+        // TODO: IMPROVEMENT: Native Activity Detection
+        // Replace speed-based heuristics with native Activity Recognition APIs
+        // (e.g., Apple CMMotionActivity / Android ActivityRecognitionClient via expo-sensors
+        // or a native module wrapper). This allows accurate classification of Walk, Run, Ride,
+        // and Stationary states directly from device accelerometers/gyroscopes, avoiding errors
+        // from average speed calculation (e.g., waiting at traffic lights skewing a run to a walk).
         const speedKmh = durationMinutes > 0 ? (distanceKm / (durationMinutes / 60)) : 0;
 
         let icon = 'navigate-outline';
