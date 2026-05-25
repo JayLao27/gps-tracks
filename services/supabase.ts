@@ -12,6 +12,10 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
 
+// TODO: IMPROVEMENT: Secure Auth Token Storage
+// Storing Supabase session tokens in unencrypted AsyncStorage is a security concern.
+// In production, configure the Supabase client to use a secure storage adapter
+// (e.g., expo-secure-store) for storing sensitive authentication tokens on native platforms.
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
         storage: isReactNative ? AsyncStorage : undefined,
@@ -20,3 +24,4 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         detectSessionInUrl: false,
     },
 });
+

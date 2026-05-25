@@ -107,6 +107,16 @@ async function appendLocalPing(ping: TrackedLocationPing): Promise<void> {
     await writeLocalPings(next);
 }
 
+// TODO: FUTURE IMPROVEMENTS & ARCHITECTURAL TODOS:
+// 1. Offline Sync Engine: Implement a queue-based sync manager that detects internet connectivity
+//    restoration and uploads locally stored fallback pings (`gps_tracks.location_pings`),
+//    locations (`gps_tracks.locations`), and visits (`gps_tracks.visits`) to Supabase.
+// 2. Kalman Filtering & Noise Denoising: Implement a denoising filter to discard coordinate points
+//    with low horizontal accuracy (e.g. accuracy > 50 meters) or erratic speed transitions to
+//    prevent route jitter and distance skewing.
+// 3. Batch DB Writes: Buffer telemetry data points in a local memory array or SQLite instance and
+//    bulk-insert/batch-write them to Supabase (e.g. every 1-2 minutes or when tracking stops)
+//    rather than making high-frequency individual HTTP network calls.
 export async function persistTrackedPing(
     latitude: number,
     longitude: number,
