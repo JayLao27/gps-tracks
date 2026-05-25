@@ -81,6 +81,13 @@ export async function startBackgroundLocationTracking(): Promise<void> {
         return;
     }
 
+    // TODO: IMPROVEMENT: Adaptive Tracking & Battery Optimization
+    // 1. Geofencing: Instead of continuous background tracking, utilize geofencing APIs
+    //    (e.g., expo-location's startGeofencingAsync) to wake up the app when boundaries are crossed.
+    // 2. Adaptive Intervals: Dynamically adjust accuracy, timeInterval, and distanceInterval
+    //    based on user speed/activity (e.g. throttle polling rate down when stationary to conserve battery).
+    // 3. Power State Monitoring: Monitor device battery status and adjust background tracking aggressiveness
+    //    accordingly.
     await locationApi.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
         accuracy: Location.Accuracy.Balanced,
         distanceInterval: 75,
