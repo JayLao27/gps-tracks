@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
     generateIntelligenceReport,
@@ -11,8 +10,12 @@ import {
     generateLocalAiInsight,
 } from '@/services/locationIntelligence';
 import { getTrackedVisits } from '@/services/locationTracking';
+import { getSecureItem, setSecureItem } from '../utils/secureStorage';
 
 const STORAGE_KEY = '@gps_tracks:gemini_api_key';
+const PERSONA_KEY = '@gps_tracks:coach_persona';
+
+export type CoachPersona = 'tough' | 'encouraging' | 'data-driven' | 'direct';
 
 export function useIntelligenceReport() {
     const [report, setReport] = useState<IntelligenceReport>(() =>
@@ -23,33 +26,63 @@ export function useIntelligenceReport() {
     const [aiInsight, setAiInsight] = useState<AiInsight>(() => report.aiInsight);
     const [aiLoading, setAiLoading] = useState(false);
     const [apiKey, setApiKey] = useState<string>('');
+    const [persona, setPersonaState] = useState<CoachPersona>('encouraging');
 
-    // Load key from AsyncStorage on mount
+    // Caching and Throttling Refs
+    const cacheRef = useRef<{
+        signature: string;
+        timestamp: number;
+        data: AiInsight;
+    } | null>(null);
+    
+    const isRequestPendingRef = useRef(false);
+
+    // Compute unique signature of inputs to cache responses
+    const getInsightSignature = useCallback((
+        prodScore: number,
+        nextLoc: string,
+        anomCount: number,
+        p: CoachPersona
+    ) => {
+        return `${prodScore}-${nextLoc}-${anomCount}-${p}`;
+    }, []);
+
+    // Load key and persona preference on mount
     useEffect(() => {
-        const loadKey = async () => {
+        const loadSavedSettings = async () => {
             try {
-                const savedKey = await AsyncStorage.getItem(STORAGE_KEY);
+                const savedKey = await getSecureItem(STORAGE_KEY);
                 if (savedKey) {
                     setApiKey(savedKey);
                 }
+                const savedPersona = await getSecureItem(PERSONA_KEY);
+                if (savedPersona === 'tough' || savedPersona === 'encouraging' || savedPersona === 'data-driven' || savedPersona === 'direct') {
+                    setPersonaState(savedPersona as CoachPersona);
+                }
             } catch (err) {
-                console.error('Failed to load Gemini key:', err);
+                console.error('Failed to load settings:', err);
             }
         };
-        loadKey();
+        loadSavedSettings();
     }, []);
 
-    // TODO: IMPROVEMENT: Secure Storage & API Key Protection
-    // 1. Secure Storage: Use Expo SecureStore instead of unencrypted AsyncStorage to save
-    //    user-entered API keys on the device.
-    // 2. Request Throttling: Implement caching/de-bouncing on API insight requests to
-    //    prevent multiple duplicate Gemini calls during frequent component updates.
     const saveApiKey = useCallback(async (newKey: string) => {
         try {
-            await AsyncStorage.setItem(STORAGE_KEY, newKey);
+            await setSecureItem(STORAGE_KEY, newKey);
             setApiKey(newKey);
+            // Clear cache when API key changes
+            cacheRef.current = null;
         } catch (err) {
             console.error('Failed to save Gemini key:', err);
+        }
+    }, []);
+
+    const savePersona = useCallback(async (newPersona: CoachPersona) => {
+        try {
+            await setSecureItem(PERSONA_KEY, newPersona);
+            setPersonaState(newPersona);
+        } catch (err) {
+            console.error('Failed to save persona preference:', err);
         }
     }, []);
 
@@ -80,39 +113,111 @@ export function useIntelligenceReport() {
             setLoading(false);
         }
 
-        // Also refresh AI insights
+        // Refresh AI insights
         setAiLoading(true);
         try {
             const keyToUse = (currentKey && typeof currentKey === 'string') ? currentKey : apiKey;
+            
+            // Check cache
+            const signature = getInsightSignature(
+                activeReport.productivity.score,
+                activeReport.prediction.nextLikelyLocation,
+                activeReport.anomalies.length,
+                persona
+            );
+
+            if (
+                cacheRef.current &&
+                cacheRef.current.signature === signature &&
+                Date.now() - cacheRef.current.timestamp < 5 * 60 * 1000 // 5 minutes cache
+            ) {
+                setAiInsight(cacheRef.current.data);
+                setAiLoading(false);
+                return;
+            }
+
+            // Request Throttling: prevent concurrent requests
+            if (isRequestPendingRef.current) {
+                setAiLoading(false);
+                return;
+            }
+            isRequestPendingRef.current = true;
+
             const apiResult = await fetchGeminiAiInsight(
                 activeReport.productivity,
                 activeReport.prediction,
                 activeReport.anomalies,
-                keyToUse
+                keyToUse,
+                persona
             );
+
+            isRequestPendingRef.current = false;
+
             if (apiResult) {
+                // Save to cache
+                cacheRef.current = {
+                    signature,
+                    timestamp: Date.now(),
+                    data: apiResult,
+                };
                 setAiInsight(apiResult);
             } else {
                 setAiInsight(activeReport.aiInsight);
             }
         } catch {
+            isRequestPendingRef.current = false;
             setAiInsight(activeReport.aiInsight);
         } finally {
             setAiLoading(false);
         }
-    }, [apiKey, report]);
+    }, [apiKey, report, persona, getInsightSignature]);
 
     const refreshAiAdvice = useCallback(async (currentKey?: any) => {
         setAiLoading(true);
         try {
             const keyToUse = (currentKey && typeof currentKey === 'string') ? currentKey : apiKey;
+
+            // Check cache
+            const signature = getInsightSignature(
+                report.productivity.score,
+                report.prediction.nextLikelyLocation,
+                report.anomalies.length,
+                persona
+            );
+
+            if (
+                cacheRef.current &&
+                cacheRef.current.signature === signature &&
+                Date.now() - cacheRef.current.timestamp < 5 * 60 * 1000 // 5 minutes
+            ) {
+                setAiInsight(cacheRef.current.data);
+                setAiLoading(false);
+                return;
+            }
+
+            // Throttling
+            if (isRequestPendingRef.current) {
+                setAiLoading(false);
+                return;
+            }
+            isRequestPendingRef.current = true;
+
             const apiResult = await fetchGeminiAiInsight(
                 report.productivity,
                 report.prediction,
                 report.anomalies,
-                keyToUse
+                keyToUse,
+                persona
             );
+
+            isRequestPendingRef.current = false;
+
             if (apiResult) {
+                cacheRef.current = {
+                    signature,
+                    timestamp: Date.now(),
+                    data: apiResult,
+                };
                 setAiInsight(apiResult);
             } else {
                 const local = generateLocalAiInsight(
@@ -123,6 +228,7 @@ export function useIntelligenceReport() {
                 setAiInsight(local);
             }
         } catch {
+            isRequestPendingRef.current = false;
             const local = generateLocalAiInsight(
                 report.productivity,
                 report.prediction,
@@ -132,12 +238,12 @@ export function useIntelligenceReport() {
         } finally {
             setAiLoading(false);
         }
-    }, [apiKey, report]);
+    }, [apiKey, report, persona, getInsightSignature]);
 
-    // Initial load when mounting or when key is loaded/changed
+    // Initial load when mounting or when key/persona is loaded or changed
     useEffect(() => {
         refresh();
-    }, [apiKey]);
+    }, [apiKey, persona]);
 
     return {
         report,
@@ -147,6 +253,8 @@ export function useIntelligenceReport() {
         aiLoading,
         apiKey,
         saveApiKey,
+        persona,
+        savePersona,
         refresh,
         refreshAiAdvice,
     };
