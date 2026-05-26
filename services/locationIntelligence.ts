@@ -606,10 +606,28 @@ export async function fetchGeminiAiInsight(
     productivity: ProductivitySummary,
     prediction: RoutinePrediction,
     anomalies: Anomaly[],
-    customApiKey?: string
+    customApiKey?: string,
+    persona?: 'tough' | 'encouraging' | 'data-driven' | 'direct'
 ): Promise<AiInsight | null> {
     const apiKey = customApiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) return null;
+
+    let personaInstructions = "Write in an encouraging, insightful, and professional tone.";
+    let coachName = "Gemini AI Coach";
+
+    if (persona === 'tough') {
+        personaInstructions = "Write in a 'tough love', highly challenging, direct, and slightly strict tone. Focus on pushing the user hard, pointing out laziness or slacking, and challenging them to do better without any fluff.";
+        coachName = "Tough Coach";
+    } else if (persona === 'encouraging') {
+        personaInstructions = "Write in a highly warm, supportive, and positive tone. Highlight any small progress, encourage them through challenges, and focus heavily on positive reinforcement.";
+        coachName = "Encouraging Coach";
+    } else if (persona === 'data-driven') {
+        personaInstructions = "Write in a highly analytical, objective, and metric-focused tone. Reference specific percentages, scores, and trends. Speak like a data scientist highlighting behavioral correlations.";
+        coachName = "Data Coach";
+    } else if (persona === 'direct') {
+        personaInstructions = "Write in an extremely concise, straight-to-the-point, and practical tone. Avoid empty filler or flowery phrases. Just deliver the action items and key insights directly.";
+        coachName = "Direct Coach";
+    }
 
     try {
         const stats = {
@@ -622,7 +640,8 @@ export async function fetchGeminiAiInsight(
             anomalies: anomalies.map(a => a.message),
         };
 
-        const prompt = `You are a world-class AI Behavioral Coach. Analyze this user's location tracking history statistics:
+        const prompt = `You are a world-class AI Behavioral Coach named ${coachName}. ${personaInstructions}
+Analyze this user's location tracking history statistics:
 ${JSON.stringify(stats, null, 2)}
 
 Provide a highly personalized behavioral coaching summary in JSON format:
@@ -656,7 +675,7 @@ Do not include any markdown formatting or extra text, output ONLY valid JSON.`;
             narrative: parsed.narrative || '',
             focusRecommendation: parsed.focusRecommendation || '',
             routineRecommendation: parsed.routineRecommendation || '',
-            coachName: "Gemini Pro AI Coach",
+            coachName: coachName,
             timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         };
     } catch (e) {
@@ -716,50 +735,98 @@ function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
 // Replace this simplified grid-precision cell count method with a proper density-based
 // spatial clustering algorithm like DBSCAN or OPTICS. This will better identify clusters
 // of irregular shapes and filter out noise points without relying on artificial coordinates grids.
+function dbscan(points: any[], eps: number, minPts: number): any[][] {
+    const visited = new Set<number>();
+    const noise = new Set<number>();
+    const clusters: any[][] = [];
+    const clustered = new Set<number>();
+
+    const getNeighbors = (index: number): number[] => {
+        const neighbors: number[] = [];
+        const p1 = points[index];
+        for (let i = 0; i < points.length; i++) {
+            const p2 = points[i];
+            const dist = haversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+            if (dist <= eps) {
+                neighbors.push(i);
+            }
+        }
+        return neighbors;
+    };
+
+    const expandCluster = (index: number, neighbors: number[], cluster: any[]) => {
+        cluster.push(points[index]);
+        clustered.add(index);
+
+        let i = 0;
+        while (i < neighbors.length) {
+            const neighborIdx = neighbors[i];
+            if (!visited.has(neighborIdx)) {
+                visited.add(neighborIdx);
+                const neighborNeighbors = getNeighbors(neighborIdx);
+                if (neighborNeighbors.length >= minPts) {
+                    for (const n of neighborNeighbors) {
+                        if (!neighbors.includes(n)) {
+                            neighbors.push(n);
+                        }
+                    }
+                }
+            }
+
+            if (!noise.has(neighborIdx) && !clustered.has(neighborIdx)) {
+                cluster.push(points[neighborIdx]);
+                clustered.add(neighborIdx);
+            }
+            i++;
+        }
+    };
+
+    for (let i = 0; i < points.length; i++) {
+        if (visited.has(i)) continue;
+        visited.add(i);
+
+        const neighbors = getNeighbors(i);
+        if (neighbors.length < minPts) {
+            noise.add(i);
+        } else {
+            const cluster: any[] = [];
+            expandCluster(i, neighbors, cluster);
+            clusters.push(cluster);
+        }
+    }
+
+    return clusters;
+}
+
 export function suggestPlacesFromPings(
     pings: any[], // raw TrackedLocationPing[]
     existingPlaces: any[], // KnownPlace[]
     minPingsThreshold = 5
 ): SuggestedPlace[] {
-    // Filter for pings categorized as 'other' (not matched to any existing geofence)
     const eligiblePings = pings.filter(p => p.category === 'other');
     if (eligiblePings.length === 0) return [];
 
-    // Grid clustering: group by rounded coordinate grids (~80-100 meters)
-    const gridPrecision = 0.0008; 
-    const gridGroups: Record<string, typeof eligiblePings> = {};
-
-    for (const ping of eligiblePings) {
-        const latGrid = Math.round(ping.latitude / gridPrecision);
-        const lonGrid = Math.round(ping.longitude / gridPrecision);
-        const key = `${latGrid},${lonGrid}`;
-
-        if (!gridGroups[key]) {
-            gridGroups[key] = [];
-        }
-        gridGroups[key].push(ping);
-    }
-
+    // Run DBSCAN with eps = 75 meters and minPts = minPingsThreshold
+    const clusters = dbscan(eligiblePings, 75, minPingsThreshold);
     const suggestions: SuggestedPlace[] = [];
 
-    for (const [key, pingsInCell] of Object.entries(gridGroups)) {
-        if (pingsInCell.length < minPingsThreshold) continue;
+    for (let i = 0; i < clusters.length; i++) {
+        const clusterPings = clusters[i];
 
         // Calculate centroid
         let sumLat = 0;
         let sumLon = 0;
-        for (const p of pingsInCell) {
+        for (const p of clusterPings) {
             sumLat += p.latitude;
             sumLon += p.longitude;
         }
-        const centroidLat = sumLat / pingsInCell.length;
-        const centroidLon = sumLon / pingsInCell.length;
+        const centroidLat = sumLat / clusterPings.length;
+        const centroidLon = sumLon / clusterPings.length;
 
         // Check if this cluster is already close to any existing known place
         let tooClose = false;
         for (const place of existingPlaces) {
             const dist = haversineDistanceMeters(centroidLat, centroidLon, place.latitude, place.longitude);
-            // If centroid is within existing place's radius (or within 200m), skip suggesting it
             if (dist <= Math.max(place.radiusMeters || 200, 200)) {
                 tooClose = true;
                 break;
@@ -772,12 +839,12 @@ export function suggestPlacesFromPings(
         const estimatedName = `Frequent Spot (${centroidLat.toFixed(4)}, ${centroidLon.toFixed(4)})`;
 
         suggestions.push({
-            id: `suggested-${key}`,
+            id: `suggested-cluster-${i}`,
             latitude: centroidLat,
             longitude: centroidLon,
-            pingCount: pingsInCell.length,
+            pingCount: clusterPings.length,
             estimatedName,
-            category: 'work', // Default suggested category
+            category: 'work',
         });
     }
 
