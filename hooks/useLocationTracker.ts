@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pedometer } from 'expo-sensors';
 
 import {
     isBackgroundLocationTrackingActive,
@@ -16,6 +17,7 @@ import { addTrack } from '@/services/database';
 
 export function useLocationTracker() {
     const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
+    const pedometerSubscriptionRef = useRef<Pedometer.Subscription | null>(null);
     const sessionPingsRef = useRef<TrackedLocationPing[]>([]);
 
     const [isTracking, setIsTracking] = useState(false);
@@ -26,6 +28,7 @@ export function useLocationTracker() {
     const [stationaryTime, setStationaryTime] = useState<number>(0);
     const [activePlace, setActivePlace] = useState<string>('');
     const [speed, setSpeed] = useState<number | null>(null);
+    const [steps, setSteps] = useState<number>(0);
     const [savedSessionsCount, setSavedSessionsCount] = useState<number>(0);
 
     const startTracking = useCallback(async () => {
@@ -36,8 +39,21 @@ export function useLocationTracker() {
         setStationaryTime(0);
         setActivePlace('');
         setSpeed(null);
+        setSteps(0);
         setSavedSessionsCount(0);
         sessionPingsRef.current = [];
+
+        // Start Pedometer
+        try {
+            const isAvailable = await Pedometer.isAvailableAsync();
+            if (isAvailable) {
+                pedometerSubscriptionRef.current = Pedometer.watchStepCount((result) => {
+                    setSteps(result.steps);
+                });
+            }
+        } catch (e) {
+            console.error('Failed to start native pedometer:', e);
+        }
 
         const subscription = await startForegroundLocationTracking(
             (ping) => {
@@ -60,6 +76,8 @@ export function useLocationTracker() {
 
         if (!subscription) {
             setIsTracking(false);
+            pedometerSubscriptionRef.current?.remove();
+            pedometerSubscriptionRef.current = null;
             return;
         }
 
@@ -70,6 +88,13 @@ export function useLocationTracker() {
     const stopTracking = useCallback(async () => {
         await stopForegroundLocationTracking(subscriptionRef.current);
         subscriptionRef.current = null;
+
+        // Stop Pedometer
+        if (pedometerSubscriptionRef.current) {
+            pedometerSubscriptionRef.current.remove();
+            pedometerSubscriptionRef.current = null;
+        }
+
         setIsTracking(false);
         setDistanceFromPrevious(0);
         setStationaryTime(0);
@@ -78,6 +103,7 @@ export function useLocationTracker() {
         setSavedSessionsCount(0);
 
         const pings = sessionPingsRef.current;
+        const currentSteps = steps;
 
         // Simulator / testing fallback: If they didn't move or are on a simulator with < 2 pings,
         // generate a highly realistic mock track so the user can immediately experience the Activities and Insights tabs.
@@ -125,6 +151,7 @@ export function useLocationTracker() {
                 color,
             });
             sessionPingsRef.current = [];
+            setSteps(0);
             return;
         }
 
@@ -155,30 +182,40 @@ export function useLocationTracker() {
             paceStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} / km`;
         }
 
-        // TODO: IMPROVEMENT: Native Activity Detection
-        // Replace speed-based heuristics with native Activity Recognition APIs
-        // (e.g., Apple CMMotionActivity / Android ActivityRecognitionClient via expo-sensors
-        // or a native module wrapper). This allows accurate classification of Walk, Run, Ride,
-        // and Stationary states directly from device accelerometers/gyroscopes, avoiding errors
-        // from average speed calculation (e.g., waiting at traffic lights skewing a run to a walk).
+        // Native Activity Detection classification
         const speedKmh = durationMinutes > 0 ? (distanceKm / (durationMinutes / 60)) : 0;
+        const averageStepsPerMin = currentSteps / durationMinutes;
 
         let icon = 'navigate-outline';
         let color = '#34d399'; // Emerald
         let activityType = 'Track';
 
-        if (speedKmh > 15) {
-            icon = 'bicycle-outline';
-            color = '#60a5fa'; // Blue
-            activityType = 'Ride';
-        } else if (speedKmh >= 6) {
-            icon = 'walk-outline';
-            color = '#f59e0b'; // Amber
-            activityType = 'Run';
+        if (currentSteps > 15) {
+            // Steps detected -> Foot-based motion
+            if (speedKmh >= 7.5 || averageStepsPerMin > 130) {
+                icon = 'walk-outline';
+                color = '#f59e0b'; // Amber
+                activityType = 'Run';
+            } else {
+                icon = 'footsteps-outline';
+                color = '#34d399'; // Emerald
+                activityType = 'Walk';
+            }
         } else {
-            icon = 'footsteps-outline';
-            color = '#34d399'; // Emerald
-            activityType = 'Walk';
+            // No steps detected (vehicular, cycling, simulator, or pedometer permissions denied)
+            if (speedKmh > 12) {
+                icon = 'bicycle-outline';
+                color = '#60a5fa'; // Blue
+                activityType = 'Ride';
+            } else if (speedKmh >= 5.5) {
+                icon = 'walk-outline';
+                color = '#f59e0b'; // Amber
+                activityType = 'Run';
+            } else {
+                icon = 'footsteps-outline';
+                color = '#34d399'; // Emerald
+                activityType = 'Walk';
+            }
         }
 
         const hour = new Date(firstPing.timestamp).getHours();
@@ -201,7 +238,8 @@ export function useLocationTracker() {
         });
 
         sessionPingsRef.current = [];
-    }, []);
+        setSteps(0);
+    }, [steps]);
 
     const refreshBackgroundStatus = useCallback(async () => {
         const active = await isBackgroundLocationTrackingActive();
@@ -244,6 +282,8 @@ export function useLocationTracker() {
         return () => {
             stopForegroundLocationTracking(subscriptionRef.current);
             subscriptionRef.current = null;
+            pedometerSubscriptionRef.current?.remove();
+            pedometerSubscriptionRef.current = null;
         };
     }, [refreshBackgroundStatus]);
 
@@ -256,6 +296,7 @@ export function useLocationTracker() {
         stationaryTime,
         activePlace,
         speed,
+        steps,
         savedSessionsCount,
         startTracking,
         stopTracking,
