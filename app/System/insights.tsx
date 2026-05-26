@@ -10,7 +10,7 @@ function toHours(minutes: number): string {
 }
 
 export default function Insights() {
-    const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice, apiKey, saveApiKey } = useIntelligenceReport();
+    const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice, apiKey, saveApiKey, persona, savePersona } = useIntelligenceReport();
     const [showKeyInput, setShowKeyInput] = useState(false);
     const { colors, isDark } = useTheme();
 
@@ -110,6 +110,41 @@ export default function Insights() {
                                 </Text>
                             </View>
                         )}
+
+                        {/* Coach Persona Selector */}
+                        <View className="mt-4">
+                            <Text className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: colors.textSecondary }}>
+                                Coach Persona
+                            </Text>
+                            <View className="flex-row justify-between bg-slate-900/5 dark:bg-black/20 p-1 rounded-xl">
+                                {(['encouraging', 'tough', 'data-driven', 'direct'] as const).map((p) => {
+                                    const isActive = persona === p;
+                                    let label = '';
+                                    if (p === 'encouraging') label = 'Warm';
+                                    else if (p === 'tough') label = 'Tough';
+                                    else if (p === 'data-driven') label = 'Data';
+                                    else if (p === 'direct') label = 'Direct';
+
+                                    return (
+                                        <Pressable
+                                            key={p}
+                                            onPress={() => savePersona(p)}
+                                            className="flex-1 py-1.5 rounded-lg items-center justify-center"
+                                            style={{
+                                                backgroundColor: isActive ? (isDark ? 'rgba(255,255,255,0.1)' : '#ffffff') : 'transparent',
+                                            }}
+                                        >
+                                            <Text 
+                                                className="text-[9px] font-extrabold uppercase tracking-wider" 
+                                                style={{ color: isActive ? colors.textPrimary : colors.textTertiary }}
+                                            >
+                                                {label}
+                                            </Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+                        </View>
 
                         {aiLoading ? (
                             <View className="py-8 items-center justify-center">
