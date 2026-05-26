@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { getEffectiveKnownPlaces } from './knownPlaces';
 import type { LocationCategory, LocationVisit } from './locationIntelligence';
 import { supabase } from './supabase';
+import { KalmanFilter, shouldDiscardPing } from '../utils/locationFilter';
 
 export interface TrackedLocationPing {
     id: string;
@@ -107,16 +108,100 @@ async function appendLocalPing(ping: TrackedLocationPing): Promise<void> {
     await writeLocalPings(next);
 }
 
-// TODO: FUTURE IMPROVEMENTS & ARCHITECTURAL TODOS:
-// 1. Offline Sync Engine: Implement a queue-based sync manager that detects internet connectivity
-//    restoration and uploads locally stored fallback pings (`gps_tracks.location_pings`),
-//    locations (`gps_tracks.locations`), and visits (`gps_tracks.visits`) to Supabase.
-// 2. Kalman Filtering & Noise Denoising: Implement a denoising filter to discard coordinate points
-//    with low horizontal accuracy (e.g. accuracy > 50 meters) or erratic speed transitions to
-//    prevent route jitter and distance skewing.
-// 3. Batch DB Writes: Buffer telemetry data points in a local memory array or SQLite instance and
-//    bulk-insert/batch-write them to Supabase (e.g. every 1-2 minutes or when tracking stops)
-//    rather than making high-frequency individual HTTP network calls.
+// Foreground Kalman Filter instance
+const fgKalmanFilter = new KalmanFilter();
+let lastFgLat: number | undefined;
+let lastFgLon: number | undefined;
+let lastFgTime: number | undefined;
+
+// Batch DB Writes & Offline Sync Engine Implementation
+let isSyncing = false;
+
+export async function syncOfflineData(): Promise<void> {
+    if (isSyncing) return;
+
+    const userId = await getCurrentUserId();
+    if (!userId) return;
+
+    isSyncing = true;
+
+    try {
+        // 1. Sync fallback local pings
+        const pings = await readLocalPings();
+        if (pings.length > 0) {
+            const rowsToInsert = pings.map((p) => ({
+                id: p.id,
+                user_id: userId,
+                latitude: p.latitude,
+                longitude: p.longitude,
+                timestamp: p.timestamp,
+                location_name: p.locationName,
+                category: p.category,
+            }));
+            const { error } = await supabase.from('location_pings').insert(rowsToInsert);
+            if (!error) {
+                await writeLocalPings([]);
+            }
+        }
+
+        // 2. Sync fallback local locations
+        const locations = await readLocalLocations();
+        if (locations.length > 0) {
+            const rowsToInsert = locations.map((l) => ({
+                user_id: userId,
+                latitude: l.latitude,
+                longitude: l.longitude,
+                speed: l.speed,
+                created_at: l.createdAt,
+            }));
+            const { error } = await supabase.from('locations').insert(rowsToInsert);
+            if (!error) {
+                await writeLocalLocations([]);
+            }
+        }
+
+        // 3. Sync fallback local visits
+        const visits = await readLocalVisits();
+        if (visits.length > 0) {
+            const rowsToInsert = visits.map((v) => ({
+                user_id: userId,
+                place_name: v.placeName,
+                entered_at: v.enteredAt,
+                exited_at: v.exitedAt,
+                duration_minutes: v.durationMinutes,
+            }));
+            const { error } = await supabase.from('visits').insert(rowsToInsert);
+            if (!error) {
+                await writeLocalVisits([]);
+            }
+        }
+    } catch (e) {
+        console.error('Offline sync failed:', e);
+    } finally {
+        isSyncing = false;
+    }
+}
+
+let syncIntervalId: any = null;
+
+export function startOfflineSyncTimer() {
+    if (syncIntervalId) return;
+    syncOfflineData();
+    syncIntervalId = setInterval(() => {
+        syncOfflineData();
+    }, 60000);
+}
+
+export function stopOfflineSyncTimer() {
+    if (syncIntervalId) {
+        clearInterval(syncIntervalId);
+        syncIntervalId = null;
+    }
+}
+
+// Start timer automatically when module is loaded
+startOfflineSyncTimer();
+
 export async function persistTrackedPing(
     latitude: number,
     longitude: number,
@@ -135,27 +220,11 @@ export async function persistTrackedPing(
         category,
     };
 
-    try {
-        if (userId) {
-            const { error } = await supabase.from('location_pings').insert({
-                id: ping.id,
-                user_id: userId,
-                latitude: ping.latitude,
-                longitude: ping.longitude,
-                timestamp: ping.timestamp,
-                location_name: ping.locationName,
-                category: ping.category,
-            });
+    // Buffer locally first (Offline-first / Batching)
+    await appendLocalPing(ping);
 
-            if (error) {
-                await appendLocalPing(ping);
-            }
-        } else {
-            await appendLocalPing(ping);
-        }
-    } catch {
-        await appendLocalPing(ping);
-    }
+    // Try to trigger asynchronous sync
+    syncOfflineData();
 
     return ping;
 }
@@ -234,28 +303,10 @@ export async function persistLocationToDb(
         createdAt: timestamp,
     };
 
-    try {
-        if (userId) {
-            const { error } = await supabase.from('locations').insert({
-                user_id: userId,
-                latitude: record.latitude,
-                longitude: record.longitude,
-                speed: record.speed,
-                created_at: record.createdAt,
-            });
+    const existing = await readLocalLocations();
+    await writeLocalLocations([...existing, record].slice(-3000));
 
-            if (error) {
-                const existing = await readLocalLocations();
-                await writeLocalLocations([...existing, record].slice(-3000));
-            }
-        } else {
-            const existing = await readLocalLocations();
-            await writeLocalLocations([...existing, record].slice(-3000));
-        }
-    } catch {
-        const existing = await readLocalLocations();
-        await writeLocalLocations([...existing, record].slice(-3000));
-    }
+    syncOfflineData();
 
     return record;
 }
@@ -275,28 +326,10 @@ export async function persistVisitSessionToDb(
         durationMinutes,
     };
 
-    try {
-        if (userId) {
-            const { error } = await supabase.from('visits').insert({
-                user_id: userId,
-                place_name: visit.placeName,
-                entered_at: visit.enteredAt,
-                exited_at: visit.exitedAt,
-                duration_minutes: visit.durationMinutes,
-            });
+    const existing = await readLocalVisits();
+    await writeLocalVisits([...existing, visit].slice(-500));
 
-            if (error) {
-                const existing = await readLocalVisits();
-                await writeLocalVisits([...existing, visit].slice(-500));
-            }
-        } else {
-            const existing = await readLocalVisits();
-            await writeLocalVisits([...existing, visit].slice(-500));
-        }
-    } catch {
-        const existing = await readLocalVisits();
-        await writeLocalVisits([...existing, visit].slice(-500));
-    }
+    syncOfflineData();
 
     return visit;
 }
@@ -412,7 +445,6 @@ export async function processStayDetection(
         };
     } else {
         const samePlace = activeSession.placeName === locationName;
-        // If they are in the same place or stationary, we stay in the active session
         if (samePlace || distanceFromPrevious < 20) {
             activeSession.lastActiveAt = timestamp;
         } else {
@@ -459,6 +491,10 @@ export async function startForegroundLocationTracking(
     }
 
     resetStayState();
+    fgKalmanFilter.reset();
+    lastFgLat = undefined;
+    lastFgLon = undefined;
+    lastFgTime = undefined;
 
     const subscription = await Location.watchPositionAsync(
         {
@@ -470,26 +506,42 @@ export async function startForegroundLocationTracking(
             try {
                 const timestampStr = new Date(position.timestamp).toISOString();
                 const speed = position.coords.speed !== undefined && position.coords.speed !== null ? position.coords.speed : null;
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                const accuracy = position.coords.accuracy ?? null;
+                const timeMs = position.timestamp;
 
-                // 1. Persist classic ping
+                // 1. Noise Denoising
+                if (shouldDiscardPing(accuracy, speed, lat, lon, timeMs, lastFgLat, lastFgLon, lastFgTime)) {
+                    return;
+                }
+
+                // 2. Kalman Filtering
+                const smoothed = fgKalmanFilter.filter(lat, lon, accuracy ?? 10);
+
+                lastFgLat = smoothed.latitude;
+                lastFgLon = smoothed.longitude;
+                lastFgTime = timeMs;
+
+                // 3. Persist classic ping
                 const ping = await persistTrackedPing(
-                    position.coords.latitude,
-                    position.coords.longitude,
+                    smoothed.latitude,
+                    smoothed.longitude,
                     timestampStr
                 );
 
-                // 2. Persist to new locations table
+                // 4. Persist to new locations table
                 await persistLocationToDb(
-                    position.coords.latitude,
-                    position.coords.longitude,
+                    smoothed.latitude,
+                    smoothed.longitude,
                     speed,
                     timestampStr
                 );
 
-                // 3. Process stay detection
+                // 5. Process stay detection
                 const stayResult = await processStayDetection(
-                    position.coords.latitude,
-                    position.coords.longitude,
+                    smoothed.latitude,
+                    smoothed.longitude,
                     speed,
                     timestampStr
                 );
@@ -525,8 +577,7 @@ export async function stopForegroundLocationTracking(
     try {
         subscription.remove();
     } catch {
-        // Some expo-location / React Native version combinations throw here due to
-        // an internal event emitter API mismatch. We swallow this to avoid a crash.
+        // Swallow
     }
 
     // Save final open session if active when tracking stops
@@ -546,6 +597,9 @@ export async function stopForegroundLocationTracking(
     }
 
     resetStayState();
+    
+    // Flush remaining offline queues
+    await syncOfflineData();
 }
 
 async function fetchSupabasePings(days: number): Promise<TrackedLocationPing[]> {
