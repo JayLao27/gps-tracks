@@ -6,6 +6,9 @@ import type { LocationCategory, LocationVisit } from './locationIntelligence';
 import { supabase } from './supabase';
 import { KalmanFilter, shouldDiscardPing } from '../utils/locationFilter';
 
+/**
+ * Interface representing a single GPS telemetry coordinate point logged in a track.
+ */
 export interface TrackedLocationPing {
     id: string;
     userId?: string;
@@ -16,6 +19,7 @@ export interface TrackedLocationPing {
     category: LocationCategory;
 }
 
+/** Row format mapped inside the Supabase database. */
 type SupabasePingRow = {
     id: string;
     user_id: string;
@@ -26,12 +30,25 @@ type SupabasePingRow = {
     category: LocationCategory;
 };
 
+// Storage Keys for Fallback Local Databases (Offline Queues)
 const LOCAL_PINGS_KEY = 'gps_tracks.location_pings';
+const LOCAL_LOCATIONS_KEY = 'gps_tracks.locations';
+const LOCAL_VISITS_KEY = 'gps_tracks.visits';
 
+/** Helper to convert decimal degrees to radians. */
 function toRadians(value: number): number {
     return (value * Math.PI) / 180;
 }
 
+/**
+ * Calculates the distance between two coordinate pairs in meters using the Haversine formula.
+ * 
+ * @param lat1 Latitude of point 1.
+ * @param lon1 Longitude of point 1.
+ * @param lat2 Latitude of point 2.
+ * @param lon2 Longitude of point 2.
+ * @returns The distance in meters.
+ */
 export function distanceMeters(
     lat1: number,
     lon1: number,
@@ -53,6 +70,11 @@ export function distanceMeters(
     return earthRadius * c;
 }
 
+/**
+ * Resolves a coordinate pair to an existing Known Place.
+ * Returns the place's name and category if it falls within the place's geofence boundary;
+ * returns a general formatted address string and 'other' category otherwise.
+ */
 async function resolvePlace(latitude: number, longitude: number): Promise<{
     locationName: string;
     category: LocationCategory;
@@ -79,6 +101,7 @@ async function resolvePlace(latitude: number, longitude: number): Promise<{
     };
 }
 
+/** Retrieves the authenticated Supabase user's ID. */
 async function getCurrentUserId(): Promise<string | undefined> {
     const {
         data: { user },
@@ -86,6 +109,10 @@ async function getCurrentUserId(): Promise<string | undefined> {
 
     return user?.id;
 }
+
+// ----------------------------------------------------
+// Fallback Local Storage Read/Write Operations
+// ----------------------------------------------------
 
 async function readLocalPings(): Promise<TrackedLocationPing[]> {
     const json = await AsyncStorage.getItem(LOCAL_PINGS_KEY);
@@ -108,25 +135,32 @@ async function appendLocalPing(ping: TrackedLocationPing): Promise<void> {
     await writeLocalPings(next);
 }
 
-// Foreground Kalman Filter instance
+// Kalman Filter instance and states for foreground location updates
 const fgKalmanFilter = new KalmanFilter();
 let lastFgLat: number | undefined;
 let lastFgLon: number | undefined;
 let lastFgTime: number | undefined;
 
-// Batch DB Writes & Offline Sync Engine Implementation
+// ----------------------------------------------------
+// Offline Sync Engine & Batch Writes
+// ----------------------------------------------------
+
 let isSyncing = false;
 
+/**
+ * Periodically uploads all offline-buffered pings, locations, and visit sessions to Supabase.
+ * Batches high-frequency updates into bulk writes to save battery and network bandwidth.
+ */
 export async function syncOfflineData(): Promise<void> {
     if (isSyncing) return;
 
     const userId = await getCurrentUserId();
-    if (!userId) return;
+    if (!userId) return; // Prevent syncing if the user session is unauthenticated
 
     isSyncing = true;
 
     try {
-        // 1. Sync fallback local pings
+        // 1. Sync local location pings
         const pings = await readLocalPings();
         if (pings.length > 0) {
             const rowsToInsert = pings.map((p) => ({
@@ -140,11 +174,11 @@ export async function syncOfflineData(): Promise<void> {
             }));
             const { error } = await supabase.from('location_pings').insert(rowsToInsert);
             if (!error) {
-                await writeLocalPings([]);
+                await writeLocalPings([]); // Clear the sync queue on success
             }
         }
 
-        // 2. Sync fallback local locations
+        // 2. Sync local raw location logs
         const locations = await readLocalLocations();
         if (locations.length > 0) {
             const rowsToInsert = locations.map((l) => ({
@@ -160,7 +194,7 @@ export async function syncOfflineData(): Promise<void> {
             }
         }
 
-        // 3. Sync fallback local visits
+        // 3. Sync local visit sessions
         const visits = await readLocalVisits();
         if (visits.length > 0) {
             const rowsToInsert = visits.map((v) => ({
@@ -176,7 +210,7 @@ export async function syncOfflineData(): Promise<void> {
             }
         }
     } catch (e) {
-        console.error('Offline sync failed:', e);
+        console.error('Offline sync execution failed:', e);
     } finally {
         isSyncing = false;
     }
@@ -184,6 +218,9 @@ export async function syncOfflineData(): Promise<void> {
 
 let syncIntervalId: any = null;
 
+/**
+ * Starts a background sync timer executing every 60 seconds.
+ */
 export function startOfflineSyncTimer() {
     if (syncIntervalId) return;
     syncOfflineData();
@@ -192,6 +229,9 @@ export function startOfflineSyncTimer() {
     }, 60000);
 }
 
+/**
+ * Stops the periodic sync timer.
+ */
 export function stopOfflineSyncTimer() {
     if (syncIntervalId) {
         clearInterval(syncIntervalId);
@@ -199,9 +239,13 @@ export function stopOfflineSyncTimer() {
     }
 }
 
-// Start timer automatically when module is loaded
+// Automatically start the background sync manager on module load
 startOfflineSyncTimer();
 
+/**
+ * Persists a tracked coordinate ping.
+ * Saves directly to the local database buffer first (offline-first), then triggers sync.
+ */
 export async function persistTrackedPing(
     latitude: number,
     longitude: number,
@@ -220,10 +264,10 @@ export async function persistTrackedPing(
         category,
     };
 
-    // Buffer locally first (Offline-first / Batching)
+    // Buffer locally first
     await appendLocalPing(ping);
 
-    // Try to trigger asynchronous sync
+    // Trigger sync
     syncOfflineData();
 
     return ping;
@@ -247,13 +291,12 @@ export interface VisitSession {
     durationMinutes: number;
 }
 
-const LOCAL_LOCATIONS_KEY = 'gps_tracks.locations';
-const LOCAL_VISITS_KEY = 'gps_tracks.visits';
-
+// Session detection tracking variables
 let lastLocationCoords: { latitude: number; longitude: number; timestamp: string } | null = null;
 let stationaryTimeMs = 0;
 let activeSession: { placeName: string; enteredAt: string; lastActiveAt: string } | null = null;
 
+/** Resets the active tracking session state variables. */
 export function resetStayState() {
     lastLocationCoords = null;
     stationaryTimeMs = 0;
@@ -288,6 +331,7 @@ export async function writeLocalVisits(visits: VisitSession[]): Promise<void> {
     await AsyncStorage.setItem(LOCAL_VISITS_KEY, JSON.stringify(visits));
 }
 
+/** Saves a raw location point to the local buffer and schedules upload. */
 export async function persistLocationToDb(
     latitude: number,
     longitude: number,
@@ -311,6 +355,7 @@ export async function persistLocationToDb(
     return record;
 }
 
+/** Saves a visit session to the local buffer and schedules upload. */
 export async function persistVisitSessionToDb(
     placeName: string,
     enteredAt: string,
@@ -334,6 +379,10 @@ export async function persistVisitSessionToDb(
     return visit;
 }
 
+/**
+ * Returns raw location coordinate pings logged in the last X days.
+ * Queries Supabase when online, falling back to AsyncStorage queues when offline.
+ */
 export async function getTrackedLocations(days = 21): Promise<LocationRecord[]> {
     const userId = await getCurrentUserId();
     if (userId) {
@@ -368,6 +417,7 @@ export async function getTrackedLocations(days = 21): Promise<LocationRecord[]> 
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
+/** Returns registered visit sessions logged in the last X days. */
 export async function getTrackedVisitsList(days = 21): Promise<VisitSession[]> {
     const userId = await getCurrentUserId();
     if (userId) {
@@ -402,6 +452,10 @@ export async function getTrackedVisitsList(days = 21): Promise<VisitSession[]> {
         .sort((a, b) => new Date(b.enteredAt).getTime() - new Date(a.enteredAt).getTime());
 }
 
+/**
+ * Evaluates whether a coordinate update triggers the start or end of a stay session
+ * (i.e. remains within 20 meters for a sustained duration).
+ */
 export async function processStayDetection(
     latitude: number,
     longitude: number,
@@ -436,7 +490,7 @@ export async function processStayDetection(
 
     lastLocationCoords = { latitude, longitude, timestamp };
 
-    // Session logic
+    // Session logic management
     if (!activeSession) {
         activeSession = {
             placeName: locationName,
@@ -448,7 +502,7 @@ export async function processStayDetection(
         if (samePlace || distanceFromPrevious < 20) {
             activeSession.lastActiveAt = timestamp;
         } else {
-            // End active session & save
+            // End the active session and write to database buffers
             const durationMs = new Date(activeSession.lastActiveAt).getTime() - new Date(activeSession.enteredAt).getTime();
             const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
 
@@ -460,7 +514,7 @@ export async function processStayDetection(
             );
             sessionSaved = true;
 
-            // Start new session
+            // Initialize next session
             activeSession = {
                 placeName: locationName,
                 enteredAt: timestamp,
@@ -478,6 +532,10 @@ export async function processStayDetection(
     };
 }
 
+/**
+ * Registers a foreground subscription to watch user location coordinates.
+ * Filters coordinates through Kalman filter smoothing and noise checks.
+ */
 export async function startForegroundLocationTracking(
     onPing: (ping: TrackedLocationPing) => void,
     onStayUpdate?: (stay: { distanceFromPrevious: number; stationaryTime: number; activePlace: string; speed: number | null; sessionSaved: boolean }) => void,
@@ -567,6 +625,10 @@ export async function startForegroundLocationTracking(
     return subscription;
 }
 
+/**
+ * Removes the foreground watch position listener.
+ * Automatically saves the final open visit session and flushes any pending offline data.
+ */
 export async function stopForegroundLocationTracking(
     subscription: Location.LocationSubscription | null
 ): Promise<void> {
@@ -598,7 +660,7 @@ export async function stopForegroundLocationTracking(
 
     resetStayState();
     
-    // Flush remaining offline queues
+    // Flush remaining offline queues to Supabase
     await syncOfflineData();
 }
 
@@ -640,12 +702,14 @@ async function fetchLocalPings(days: number): Promise<TrackedLocationPing[]> {
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
+/** Fetches pings in the last X days, querying remote database first and falling back to local. */
 export async function getTrackedPings(days = 21): Promise<TrackedLocationPing[]> {
     const supabasePings = await fetchSupabasePings(days);
     if (supabasePings.length > 0) return supabasePings;
     return fetchLocalPings(days);
 }
 
+/** Groups raw pings into visits by parsing spatial gaps and timestamps. */
 export function aggregatePingsToVisits(pings: TrackedLocationPing[]): LocationVisit[] {
     if (pings.length === 0) return [];
 
@@ -721,6 +785,7 @@ export function aggregatePingsToVisits(pings: TrackedLocationPing[]): LocationVi
     return visits;
 }
 
+/** Fetches location pings in the last X days and aggregates them into visits. */
 export async function getTrackedVisits(days = 21): Promise<LocationVisit[]> {
     const pings = await getTrackedPings(days);
     return aggregatePingsToVisits(pings);
