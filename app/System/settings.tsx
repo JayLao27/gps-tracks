@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -58,6 +59,8 @@ const settingsSections: SettingsSection[] = [
     },
 ];
 
+const SETTINGS_PREFS_KEY = '@gps_tracks:settings_prefs';
+
 export default function Settings() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
@@ -77,13 +80,34 @@ export default function Settings() {
 
     useEffect(() => {
         getCurrentUser().then(setUser);
+
+        // Load persistent preferences from AsyncStorage on mount
+        const loadPrefs = async () => {
+            try {
+                const saved = await AsyncStorage.getItem(SETTINGS_PREFS_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    setToggleStates((prev) => ({ ...prev, ...parsed }));
+                }
+            } catch (e) {
+                console.error('Failed to load settings preferences:', e);
+            }
+        };
+        loadPrefs();
     }, []);
 
-    const handleToggle = (label: string) => {
+    const handleToggle = async (label: string) => {
         if (label === 'Dark Mode') {
             toggleTheme();
         } else {
-            setToggleStates((prev) => ({ ...prev, [label]: !prev[label] }));
+            const nextVal = !toggleStates[label];
+            const nextStates = { ...toggleStates, [label]: nextVal };
+            setToggleStates(nextStates);
+            try {
+                await AsyncStorage.setItem(SETTINGS_PREFS_KEY, JSON.stringify(nextStates));
+            } catch (e) {
+                console.error('Failed to save settings preferences:', e);
+            }
         }
     };
 
