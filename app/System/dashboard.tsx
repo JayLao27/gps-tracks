@@ -7,18 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-
-const stats = [
-    { label: 'Distance', value: '48.2', unit: 'km', icon: 'trail-sign-outline' as const, color: '#34d399' },
-    { label: 'Active Time', value: '5.4', unit: 'hrs', icon: 'timer-outline' as const, color: '#60a5fa' },
-    { label: 'Tracks', value: '12', unit: 'total', icon: 'map-outline' as const, color: '#f59e0b' },
-];
-
-const recentTracks = [
-    { id: '1', name: 'Morning Jog – Riverside', date: 'Today, 6:32 AM', distance: '4.2 km', duration: '28 min', icon: 'walk-outline' as const },
-    { id: '2', name: 'Evening Bike Ride', date: 'Yesterday, 5:15 PM', distance: '12.8 km', duration: '45 min', icon: 'bicycle-outline' as const },
-    { id: '3', name: 'Weekend Hike – Mt. Trail', date: 'Mar 19, 8:00 AM', distance: '8.6 km', duration: '2h 10m', icon: 'footsteps-outline' as const },
-];
+import { useRouter } from 'expo-router';
+import { useTracks } from '@/hooks/useTracks';
 
 function getGreeting(): string {
     const h = new Date().getHours();
@@ -44,8 +34,10 @@ function formatStationaryTime(seconds: number): string {
 }
 
 export default function Dashboard() {
+    const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
     const { report, source, refresh } = useIntelligenceReport();
+    const { tracks, loading: tracksLoading, refresh: refreshTracks } = useTracks();
     const {
         isTracking,
         isBackgroundTracking,
@@ -65,7 +57,56 @@ export default function Dashboard() {
 
     useEffect(() => {
         getCurrentUser().then(setUser);
+        refreshTracks();
     }, []);
+
+    // Refresh dashboard stats whenever tracking session ends
+    useEffect(() => {
+        if (!isTracking) {
+            refreshTracks();
+        }
+    }, [isTracking]);
+
+    // Compute live dashboard metrics based on real database tracks
+    const totalDistance = tracks.reduce((sum, t) => sum + parseFloat(t.distance || '0'), 0);
+    const totalMinutes = tracks.reduce((sum, t) => sum + (t.duration_minutes || 0), 0);
+    const activeHours = (totalMinutes / 60).toFixed(1);
+    const tracksCount = tracks.length;
+
+    const displayStats = [
+        { label: 'Distance', value: totalDistance.toFixed(1), unit: 'km', icon: 'trail-sign-outline' as const, color: '#34d399' },
+        { label: 'Active Time', value: activeHours, unit: 'hrs', icon: 'timer-outline' as const, color: '#60a5fa' },
+        { label: 'Tracks', value: tracksCount.toString(), unit: 'total', icon: 'map-outline' as const, color: '#f59e0b' },
+    ];
+
+    // Grab the latest 3 tracks from the user's history
+    const displayRecentTracks = tracks.slice(0, 3).map((t) => {
+        let dateStr = '';
+        try {
+            const date = new Date(t.date);
+            const now = new Date();
+            const diffMs = now.getTime() - date.getTime();
+            const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+            if (diffDays === 0) {
+                dateStr = 'Today, ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            } else if (diffDays === 1) {
+                dateStr = 'Yesterday, ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            } else {
+                dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            }
+        } catch {
+            dateStr = t.date;
+        }
+
+        return {
+            id: t.id || Math.random().toString(),
+            name: t.name,
+            date: dateStr,
+            distance: `${t.distance} km`,
+            duration: `${t.duration_minutes} min`,
+            icon: (t.icon || 'walk-outline') as any,
+        };
+    });
 
     return (
         <LinearGradient
@@ -286,7 +327,7 @@ export default function Dashboard() {
 
                 {/* Quick Stats Grid */}
                 <View className="flex-row gap-3 px-6 pt-5">
-                    {stats.map((stat) => (
+                    {displayStats.map((stat) => (
                         <View
                             key={stat.label}
                             className="flex-1 rounded-2xl border p-4 shadow-sm"
@@ -353,43 +394,52 @@ export default function Dashboard() {
                         <Text className="text-sm font-bold uppercase tracking-widest" style={{ color: colors.textSecondary }}>
                             Recent Tracks
                         </Text>
-                        <Pressable>
+                        <Pressable onPress={() => router.push('/System/activity')}>
                             <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.productivityText }}>
                                 View all
                             </Text>
                         </Pressable>
                     </View>
 
-                    {recentTracks.map((track) => (
-                        <Pressable
-                            key={track.id}
-                            className="mb-3 flex-row items-center rounded-2xl border p-4 shadow-sm"
-                            style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
-                        >
-                            <View 
-                                className="mr-4 h-10 w-10 items-center justify-center rounded-xl border"
-                                style={{ backgroundColor: colors.productivityBg, borderColor: colors.productivityBorder }}
+                    {displayRecentTracks.length === 0 ? (
+                        <View className="rounded-2xl border p-6" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
+                            <Text className="text-center text-xs font-semibold leading-normal" style={{ color: colors.textSecondary }}>
+                                No tracks recorded yet. Start tracking above!
+                            </Text>
+                        </View>
+                    ) : (
+                        displayRecentTracks.map((track) => (
+                            <Pressable
+                                key={track.id}
+                                onPress={() => router.push('/System/activity')}
+                                className="mb-3 flex-row items-center rounded-2xl border p-4 shadow-sm active:opacity-80"
+                                style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
                             >
-                                <Ionicons name={track.icon} size={20} color={colors.productivityText} />
-                            </View>
-                            <View className="flex-1">
-                                <Text className="text-sm font-bold tracking-tight leading-snug" style={{ color: colors.textPrimary }}>
-                                    {track.name}
-                                </Text>
-                                <Text className="mt-0.5 text-[10px]" style={{ color: colors.textTertiary }}>
-                                    {track.date}
-                                </Text>
-                            </View>
-                            <View className="items-end ml-2">
-                                <Text className="text-sm font-black leading-none" style={{ color: colors.textPrimary }}>
-                                    {track.distance}
-                                </Text>
-                                <Text className="mt-1 text-[10px] font-bold" style={{ color: colors.textTertiary }}>
-                                    {track.duration}
-                                </Text>
-                            </View>
-                        </Pressable>
-                    ))}
+                                <View 
+                                    className="mr-4 h-10 w-10 items-center justify-center rounded-xl border"
+                                    style={{ backgroundColor: colors.productivityBg, borderColor: colors.productivityBorder }}
+                                >
+                                    <Ionicons name={track.icon} size={20} color={colors.productivityText} />
+                                </View>
+                                <View className="flex-1">
+                                    <Text className="text-sm font-bold tracking-tight leading-snug" style={{ color: colors.textPrimary }}>
+                                        {track.name}
+                                    </Text>
+                                    <Text className="mt-0.5 text-[10px]" style={{ color: colors.textTertiary }}>
+                                        {track.date}
+                                    </Text>
+                                </View>
+                                <View className="items-end ml-2">
+                                    <Text className="text-sm font-black leading-none" style={{ color: colors.textPrimary }}>
+                                        {track.distance}
+                                    </Text>
+                                    <Text className="mt-1 text-[10px] font-bold" style={{ color: colors.textTertiary }}>
+                                        {track.duration}
+                                    </Text>
+                                </View>
+                            </Pressable>
+                        ))
+                    )}
                 </View>
             </ScrollView>
         </LinearGradient>
