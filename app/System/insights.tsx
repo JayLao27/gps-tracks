@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
+import { useIntelligenceChat } from '@/hooks/useIntelligenceChat';
 
 function toHours(minutes: number): string {
     return `${(minutes / 60).toFixed(1)}h`;
@@ -13,6 +14,19 @@ export default function Insights() {
     const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice, apiKey, saveApiKey, persona, savePersona } = useIntelligenceReport();
     const [showKeyInput, setShowKeyInput] = useState(false);
     const { colors, isDark } = useTheme();
+
+    const { messages, sendMessage, clearChat, isLoading: chatLoading } = useIntelligenceChat(report, apiKey, persona);
+    const [chatOpen, setChatOpen] = useState(false);
+    const [inputText, setInputText] = useState('');
+    const chatScrollViewRef = useRef<ScrollView>(null);
+
+    useEffect(() => {
+        if (chatOpen && chatScrollViewRef.current) {
+            setTimeout(() => {
+                chatScrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+        }
+    }, [messages.length, chatLoading, chatOpen]);
 
     return (
         <LinearGradient
@@ -192,16 +206,28 @@ export default function Insights() {
                                     <Text className="text-[9px] font-semibold uppercase" style={{ color: colors.textTertiary }}>
                                         Synced: {aiInsight.timestamp}
                                     </Text>
-                                    <Pressable
-                                        onPress={refreshAiAdvice}
-                                        className="flex-row items-center rounded-xl border px-3 py-1.5 active:bg-indigo-600/30"
-                                        style={{ backgroundColor: colors.aiBg, borderColor: colors.aiBorder }}
-                                    >
-                                        <Ionicons name="sparkles" size={11} color={colors.aiText} />
-                                        <Text className="ml-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.aiText }}>
-                                            Ask Coach
-                                        </Text>
-                                    </Pressable>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Pressable
+                                            onPress={refreshAiAdvice}
+                                            className="flex-row items-center rounded-xl border px-2.5 py-1.5 active:bg-indigo-600/30"
+                                            style={{ backgroundColor: colors.aiBg, borderColor: colors.aiBorder, marginRight: 8 }}
+                                        >
+                                            <Ionicons name="sparkles" size={11} color={colors.aiText} />
+                                            <Text className="ml-1 text-[9px] font-extrabold uppercase tracking-wider" style={{ color: colors.aiText }}>
+                                                Re-Analyze
+                                            </Text>
+                                        </Pressable>
+                                        <Pressable
+                                            onPress={() => setChatOpen(true)}
+                                            className="flex-row items-center rounded-xl border px-3 py-1.5 active:bg-indigo-600/30"
+                                            style={{ backgroundColor: colors.aiBg, borderColor: colors.aiBorder }}
+                                        >
+                                            <Ionicons name="chatbubbles-outline" size={11} color={colors.aiText} />
+                                            <Text className="ml-1 text-[9px] font-extrabold uppercase tracking-wider" style={{ color: colors.aiText }}>
+                                                Chat
+                                            </Text>
+                                        </Pressable>
+                                    </View>
                                 </View>
                             </View>
                         )}
@@ -462,6 +488,269 @@ export default function Insights() {
                     </View>
                 </View>
             </ScrollView>
+
+            <Modal
+                visible={chatOpen}
+                animationType="slide"
+                onRequestClose={() => setChatOpen(false)}
+            >
+                <View 
+                    style={{ 
+                        flex: 1, 
+                        backgroundColor: isDark ? '#090d16' : '#f8fafc',
+                    }}
+                >
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                        style={{ flex: 1 }}
+                    >
+                        {/* Header */}
+                        <View 
+                            style={{ 
+                                flexDirection: 'row', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between', 
+                                paddingHorizontal: 20, 
+                                paddingTop: 60, 
+                                paddingBottom: 16, 
+                                borderBottomWidth: 1, 
+                                borderBottomColor: colors.cardBorder,
+                                backgroundColor: isDark ? '#090d16' : '#ffffff'
+                            }}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Pressable 
+                                    onPress={() => setChatOpen(false)} 
+                                    style={{ padding: 8, marginRight: 8 }}
+                                >
+                                    <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+                                </Pressable>
+                                <View 
+                                    style={{ 
+                                        width: 36, 
+                                        height: 36, 
+                                        borderRadius: 18, 
+                                        backgroundColor: colors.aiBg, 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        borderColor: colors.aiBorder, 
+                                        borderWidth: 1 
+                                    }}
+                                >
+                                    <Ionicons 
+                                        name={
+                                            persona === 'tough' ? 'shield-outline' :
+                                            persona === 'encouraging' ? 'heart-outline' :
+                                            persona === 'data-driven' ? 'analytics-outline' : 'flash-outline'
+                                        } 
+                                        size={18} 
+                                        color={colors.aiText} 
+                                    />
+                                </View>
+                                <View style={{ marginLeft: 12 }}>
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: 'bold' }}>
+                                        {
+                                            persona === 'tough' ? 'Tough Coach' :
+                                            persona === 'encouraging' ? 'Encouraging Coach' :
+                                            persona === 'data-driven' ? 'Data Coach' : 'Direct Coach'
+                                        }
+                                    </Text>
+                                    <Text style={{ color: colors.textTertiary, fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                        Active Chat
+                                    </Text>
+                                </View>
+                            </View>
+                            <Pressable 
+                                onPress={clearChat} 
+                                style={{ padding: 8 }}
+                            >
+                                <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
+                            </Pressable>
+                        </View>
+
+                        {/* Message ScrollView */}
+                        <ScrollView 
+                            ref={chatScrollViewRef}
+                            style={{ flex: 1, paddingHorizontal: 20 }}
+                            contentContainerStyle={{ paddingVertical: 16 }}
+                            showsVerticalScrollIndicator={true}
+                        >
+                            {messages.map((message) => {
+                                const isCoach = message.role === 'model';
+                                return (
+                                    <View 
+                                        key={message.id}
+                                        style={{ 
+                                            alignSelf: isCoach ? 'flex-start' : 'flex-end', 
+                                            maxWidth: '80%', 
+                                            marginVertical: 6 
+                                        }}
+                                    >
+                                        <View 
+                                            style={{ 
+                                                backgroundColor: isCoach 
+                                                    ? (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.03)') 
+                                                    : '#4f46e5', 
+                                                paddingHorizontal: 16, 
+                                                paddingVertical: 12, 
+                                                borderRadius: 20, 
+                                                borderTopLeftRadius: isCoach ? 4 : 20,
+                                                borderTopRightRadius: isCoach ? 20 : 4,
+                                                borderColor: isCoach ? colors.cardBorder : 'transparent', 
+                                                borderWidth: isCoach ? 1 : 0 
+                                            }}
+                                        >
+                                            <Text 
+                                                style={{ 
+                                                    color: isCoach ? colors.textPrimary : '#ffffff', 
+                                                    fontSize: 13, 
+                                                    lineHeight: 18,
+                                                    fontWeight: '500'
+                                                }}
+                                            >
+                                                {message.text}
+                                            </Text>
+                                        </View>
+                                        <Text 
+                                            style={{ 
+                                                alignSelf: isCoach ? 'flex-start' : 'flex-end', 
+                                                fontSize: 9, 
+                                                color: colors.textTertiary, 
+                                                marginTop: 4,
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            {message.timestamp}
+                                        </Text>
+                                    </View>
+                                );
+                            })}
+                            
+                            {chatLoading && (
+                                <View style={{ alignSelf: 'flex-start', maxWidth: '80%', marginVertical: 6 }}>
+                                    <View 
+                                        style={{ 
+                                            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.03)', 
+                                            paddingHorizontal: 16, 
+                                            paddingVertical: 12, 
+                                            borderRadius: 20, 
+                                            borderTopLeftRadius: 4, 
+                                            borderColor: colors.cardBorder, 
+                                            borderWidth: 1, 
+                                            flexDirection: 'row', 
+                                            alignItems: 'center' 
+                                        }}
+                                    >
+                                        <ActivityIndicator size="small" color={colors.aiText} style={{ marginRight: 8 }} />
+                                        <Text style={{ color: colors.textTertiary, fontSize: 12, fontStyle: 'italic', fontWeight: 'bold' }}>
+                                            Coach is analyzing...
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
+                        </ScrollView>
+
+                        {/* Suggestion Chips */}
+                        <View style={{ borderTopWidth: 1, borderTopColor: colors.cardBorder, backgroundColor: isDark ? '#090d16' : '#ffffff', paddingTop: 8 }}>
+                            <ScrollView 
+                                horizontal 
+                                showsHorizontalScrollIndicator={false} 
+                                style={{ maxHeight: 50, paddingHorizontal: 16 }}
+                            >
+                                {[
+                                    { text: "Analyze score", query: "How is my productivity score?" },
+                                    { text: "Check anomalies", query: "Did you detect any anomalies in my schedule?" },
+                                    { text: "Goals summary", query: "Tell me about my gym, study, and social goals" },
+                                    { text: "Predict next location", query: "Where do you predict I will go next?" },
+                                ].map((s) => (
+                                    <Pressable
+                                        key={s.text}
+                                        onPress={() => sendMessage(s.query)}
+                                        style={{ 
+                                            backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9', 
+                                            borderColor: colors.cardBorder, 
+                                            borderWidth: 1, 
+                                            borderRadius: 16, 
+                                            paddingHorizontal: 14, 
+                                            paddingVertical: 8, 
+                                            marginRight: 8, 
+                                            height: 32,
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        <Text style={{ color: colors.textSecondary, fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                            {s.text}
+                                        </Text>
+                                    </Pressable>
+                                ))}
+                            </ScrollView>
+                        </View>
+
+                        {/* Bottom Input Area */}
+                        <View 
+                            style={{ 
+                                paddingHorizontal: 20, 
+                                paddingBottom: Platform.OS === 'ios' ? 40 : 20, 
+                                paddingTop: 8, 
+                                flexDirection: 'row', 
+                                alignItems: 'center', 
+                                borderTopWidth: 1, 
+                                borderTopColor: colors.cardBorder,
+                                backgroundColor: isDark ? '#090d16' : '#ffffff'
+                            }}
+                        >
+                            <TextInput
+                                style={{ 
+                                    flex: 1, 
+                                    backgroundColor: isDark ? '#020617' : '#f8fafc', 
+                                    color: colors.textPrimary, 
+                                    borderColor: colors.cardBorder, 
+                                    borderWidth: 1, 
+                                    borderRadius: 24, 
+                                    paddingHorizontal: 16, 
+                                    paddingVertical: 10, 
+                                    fontSize: 13,
+                                    marginRight: 12
+                                }}
+                                value={inputText}
+                                onChangeText={setInputText}
+                                placeholder="Message your coach..."
+                                placeholderTextColor={isDark ? '#475569' : '#94a3b8'}
+                                multiline={false}
+                                onSubmitEditing={() => {
+                                    if (inputText.trim()) {
+                                        sendMessage(inputText);
+                                        setInputText('');
+                                    }
+                                }}
+                            />
+                            <Pressable 
+                                onPress={() => {
+                                    if (inputText.trim()) {
+                                        sendMessage(inputText);
+                                        setInputText('');
+                                    }
+                                }}
+                                style={{ 
+                                    width: 40, 
+                                    height: 40, 
+                                    borderRadius: 20, 
+                                    backgroundColor: inputText.trim() ? '#4f46e5' : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.03)'), 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center' 
+                                }}
+                                disabled={!inputText.trim()}
+                            >
+                                <Ionicons 
+                                    name="arrow-up" 
+                                    size={20} 
+                                    color={inputText.trim() ? '#ffffff' : colors.textTertiary} 
+                                />
+                            </Pressable>
+                        </View>
+                    </KeyboardAvoidingView>
+                </View>
+            </Modal>
         </LinearGradient>
     );
 }
