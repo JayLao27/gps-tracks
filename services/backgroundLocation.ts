@@ -6,8 +6,17 @@ import * as Battery from 'expo-battery';
 import { persistTrackedPing } from './locationTracking';
 import { KalmanFilter, shouldDiscardPing } from '../utils/locationFilter';
 
+/**
+ * Unique task identifier for Expo's Background Task Manager.
+ */
 export const BACKGROUND_LOCATION_TASK = 'gps-tracks-background-location-task';
 
+/**
+ * Helper to check whether the background location tracking API features are fully supported
+ * by the current runtime environment (i.e. disabled on Web browser simulations).
+ * 
+ * @returns True if supported; false otherwise.
+ */
 function isBackgroundApiSupported(): boolean {
     const locationApi = Location as unknown as {
         hasStartedLocationUpdatesAsync?: (taskName: string) => Promise<boolean>;
@@ -29,17 +38,27 @@ function isBackgroundApiSupported(): boolean {
     );
 }
 
-// Background Kalman Filter and states
+// Background Kalman Filter instance and state memory to denoise background GPS coordinates
 const bgKalmanFilter = new KalmanFilter();
 let lastBgLat: number | undefined;
 let lastBgLon: number | undefined;
 let lastBgTime: number | undefined;
 
-// Active tracking options
+// Active background tracking options tracked inside the module scope to avoid redundant updates
 let activeAccuracy: Location.Accuracy = Location.Accuracy.Balanced;
 let activeTimeInterval = 120000;
 let activeDistanceInterval = 75;
 
+/**
+ * Dynamically adjusts background location parameters on the fly based on the user's velocity
+ * and the device's current battery status.
+ * 
+ * - If the device is in low power mode or battery is < 20%, it throttles updates to 5-minute intervals.
+ * - If the user is moving fast (> 15 km/h), it increases polling frequency to 30-second intervals.
+ * - If the user is stationary, it drops updates to 4-minute intervals to maximize battery life.
+ * 
+ * @param speedMps Current instantaneous speed in meters per second.
+ */
 async function adjustTrackingParams(speedMps: number | null): Promise<void> {
     try {
         const batteryLevel = await Battery.getBatteryLevelAsync();
@@ -49,12 +68,14 @@ async function adjustTrackingParams(speedMps: number | null): Promise<void> {
         let targetTimeInterval = 120000;
         let targetDistanceInterval = 75;
 
+        // Apply battery-conserving policies
         if (isLowPower || batteryLevel < 0.20) {
             targetAccuracy = Location.Accuracy.Low;
             targetTimeInterval = 300000; // 5 minutes
             targetDistanceInterval = 150; // 150 meters
         } else if (speedMps !== null) {
             const speedKmh = speedMps * 3.6;
+            // Apply speed-adaptive policies
             if (speedKmh > 15) {
                 targetAccuracy = Location.Accuracy.High;
                 targetTimeInterval = 30000; // 30 seconds
@@ -66,6 +87,7 @@ async function adjustTrackingParams(speedMps: number | null): Promise<void> {
             }
         }
 
+        // Restart the background location task with updated options if parameters change
         if (
             targetAccuracy !== activeAccuracy ||
             targetTimeInterval !== activeTimeInterval ||
@@ -99,6 +121,7 @@ async function adjustTrackingParams(speedMps: number | null): Promise<void> {
     }
 }
 
+// Define the background task handler in the TaskManager
 if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
     TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         if (error) {
@@ -119,28 +142,35 @@ if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
             const speed = location.coords.speed ?? null;
             const timeMs = location.timestamp;
 
-            // Kalman Filtering & Noise Denoising
+            // Denoising & outlier removal
             if (shouldDiscardPing(accuracy, speed, lat, lon, timeMs, lastBgLat, lastBgLon, lastBgTime)) {
                 continue;
             }
 
+            // Kalman smoothing
             const smoothed = bgKalmanFilter.filter(lat, lon, accuracy ?? 10);
 
             lastBgLat = smoothed.latitude;
             lastBgLon = smoothed.longitude;
             lastBgTime = timeMs;
 
+            // Save smoothed location locally / offline buffer
             await persistTrackedPing(
                 smoothed.latitude,
                 smoothed.longitude,
                 new Date(timeMs).toISOString()
             );
 
+            // Dynamically recalculate optimal background options based on current velocity
             await adjustTrackingParams(speed);
         }
     });
 }
 
+/**
+ * Requests necessary location permissions and starts background location updates.
+ * Estimates current battery state right away to configure initial optimized tracking parameters.
+ */
 export async function startBackgroundLocationTracking(): Promise<void> {
     if (!isBackgroundApiSupported()) {
         throw new Error('Background location tracking is not supported on this platform.');
@@ -172,6 +202,7 @@ export async function startBackgroundLocationTracking(): Promise<void> {
         return;
     }
 
+    // Reset background filters
     bgKalmanFilter.reset();
     lastBgLat = undefined;
     lastBgLon = undefined;
@@ -211,6 +242,9 @@ export async function startBackgroundLocationTracking(): Promise<void> {
     });
 }
 
+/**
+ * Stops background location updates.
+ */
 export async function stopBackgroundLocationTracking(): Promise<void> {
     if (!isBackgroundApiSupported()) {
         return;
@@ -232,6 +266,11 @@ export async function stopBackgroundLocationTracking(): Promise<void> {
     await locationApi.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
 }
 
+/**
+ * Checks whether background location tracking is actively registered in TaskManager.
+ * 
+ * @returns True if background updates are active.
+ */
 export async function isBackgroundLocationTrackingActive(): Promise<boolean> {
     if (!isBackgroundApiSupported()) {
         return false;
