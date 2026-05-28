@@ -15,9 +15,17 @@ import {
 } from '@/services/locationTracking';
 import { addTrack } from '@/services/database';
 
+/**
+ * A custom hook that coordinates foreground and background GPS location tracking,
+ * processes stay sessions, integrates native pedometer step sensors, and dynamically 
+ * classifies user activities (Walk, Run, Ride).
+ */
 export function useLocationTracker() {
+    /** Subscription handle for foreground GPS tracking. */
     const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
+    /** Subscription handle for native Pedometer step counting. */
     const pedometerSubscriptionRef = useRef<Pedometer.Subscription | null>(null);
+    /** Local buffer of coordinate pings gathered during the active tracking session. */
     const sessionPingsRef = useRef<TrackedLocationPing[]>([]);
 
     const [isTracking, setIsTracking] = useState(false);
@@ -31,6 +39,10 @@ export function useLocationTracker() {
     const [steps, setSteps] = useState<number>(0);
     const [savedSessionsCount, setSavedSessionsCount] = useState<number>(0);
 
+    /**
+     * Starts foreground location tracking and native step counting sensors.
+     * Resets active tracker values.
+     */
     const startTracking = useCallback(async () => {
         if (subscriptionRef.current) return;
 
@@ -43,7 +55,7 @@ export function useLocationTracker() {
         setSavedSessionsCount(0);
         sessionPingsRef.current = [];
 
-        // Start Pedometer
+        // Initialize Pedometer sensor tracking
         try {
             const isAvailable = await Pedometer.isAvailableAsync();
             if (isAvailable) {
@@ -85,11 +97,19 @@ export function useLocationTracker() {
         setIsTracking(true);
     }, []);
 
+    /**
+     * Stops active tracking.
+     * Unsubscribes from foreground GPS and native step counters.
+     * Evaluates collected data using a hybrid sensor/GPS classifier to log the final track:
+     * - If step cadence is high, classifies as "Run".
+     * - If step cadence is low or moderate, classifies as "Walk".
+     * - If speed is high but steps are low (e.g. driving/cycling), classifies as "Ride".
+     */
     const stopTracking = useCallback(async () => {
         await stopForegroundLocationTracking(subscriptionRef.current);
         subscriptionRef.current = null;
 
-        // Stop Pedometer
+        // Disconnect Pedometer sensor
         if (pedometerSubscriptionRef.current) {
             pedometerSubscriptionRef.current.remove();
             pedometerSubscriptionRef.current = null;
@@ -105,8 +125,9 @@ export function useLocationTracker() {
         const pings = sessionPingsRef.current;
         const currentSteps = steps;
 
-        // Simulator / testing fallback: If they didn't move or are on a simulator with < 2 pings,
-        // generate a highly realistic mock track so the user can immediately experience the Activities and Insights tabs.
+        // Simulator / testing fallback path:
+        // Generates a simulated realistic track if user is running on a simulator or didn't walk enough,
+        // letting them immediately inspect the dashboards and insights tabs.
         if (pings.length < 2) {
             const distanceKm = 2.5 + Math.random() * 6;
             const durationMinutes = Math.round(15 + Math.random() * 45);
@@ -182,7 +203,7 @@ export function useLocationTracker() {
             paceStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} / km`;
         }
 
-        // Native Activity Detection classification
+        // Hybrid Activity recognition: Combine step count cadence and GPS velocity
         const speedKmh = durationMinutes > 0 ? (distanceKm / (durationMinutes / 60)) : 0;
         const averageStepsPerMin = currentSteps / durationMinutes;
 
@@ -241,11 +262,13 @@ export function useLocationTracker() {
         setSteps(0);
     }, [steps]);
 
+    /** Queries background registration status. */
     const refreshBackgroundStatus = useCallback(async () => {
         const active = await isBackgroundLocationTrackingActive();
         setIsBackgroundTracking(active);
     }, []);
 
+    /** Starts background adaptive location tracking. */
     const startBackgroundTracking = useCallback(async () => {
         setError('');
 
@@ -261,6 +284,7 @@ export function useLocationTracker() {
         }
     }, []);
 
+    /** Stops background adaptive location tracking. */
     const stopBackgroundTracking = useCallback(async () => {
         setError('');
 
