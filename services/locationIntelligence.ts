@@ -672,7 +672,7 @@ export async function fetchGeminiAiInsight(
     persona?: 'tough' | 'encouraging' | 'data-driven' | 'direct',
     onStreamChunk?: (partial: Partial<AiInsight>) => void
 ): Promise<AiInsight | null> {
-    const apiKey = customApiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    const apiKey = customApiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'AIzaSyCr49Xp8Lj_XxQ--SQoPscXQVFgAyqOklg';
     if (!apiKey) return null;
 
     let personaInstructions = "Write in an encouraging, insightful, and professional tone.";
