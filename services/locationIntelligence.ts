@@ -602,12 +602,75 @@ export function generateLocalAiInsight(
 //     content generation response rather than waiting for the entire block.
 // 3. Offload Computation: Migrate analytical calculations (DBSCAN, routine prediction, productivity scoring)
 //     to a Web Worker / background thread, or pre-calculate them server-side via Supabase Edge Functions.
+/**
+ * Parses incomplete/streaming JSON buffers progressively.
+ * Utilizes regular expressions to extract partial properties from the active JSON stream
+ * before the full block has finished generating.
+ * 
+ * @param jsonStr The current raw buffer content.
+ * @returns A partial AiInsight object.
+ */
+function parsePartialJson(jsonStr: string): Partial<AiInsight> {
+    const result: Partial<AiInsight> = {};
+
+    // Remove any markdown wrappers if present (sometimes Gemini adds them despite config)
+    const cleanedJson = jsonStr.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+    
+    // Extract "narrative": "..."
+    const narrativeMatch = cleanedJson.match(/"narrative"\s*:\s*"((\\.|[^"\\])*)"/);
+    if (narrativeMatch) {
+        result.narrative = narrativeMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
+    } else {
+        const partialNarrativeMatch = cleanedJson.match(/"narrative"\s*:\s*"((\\.|[^"\\])*)$/);
+        if (partialNarrativeMatch) {
+            result.narrative = partialNarrativeMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
+        }
+    }
+
+    // Extract "focusRecommendation": "..."
+    const focusMatch = cleanedJson.match(/"focusRecommendation"\s*:\s*"((\\.|[^"\\])*)"/);
+    if (focusMatch) {
+        result.focusRecommendation = focusMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
+    } else {
+        const partialFocusMatch = cleanedJson.match(/"focusRecommendation"\s*:\s*"((\\.|[^"\\])*)$/);
+        if (partialFocusMatch) {
+            result.focusRecommendation = partialFocusMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
+        }
+    }
+
+    // Extract "routineRecommendation": "..."
+    const routineMatch = cleanedJson.match(/"routineRecommendation"\s*:\s*"((\\.|[^"\\])*)"/);
+    if (routineMatch) {
+        result.routineRecommendation = routineMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
+    } else {
+        const partialRoutineMatch = cleanedJson.match(/"routineRecommendation"\s*:\s*"((\\.|[^"\\])*)$/);
+        if (partialRoutineMatch) {
+            result.routineRecommendation = partialRoutineMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Fetches coaching insights from the Gemini API.
+ * Supports token streaming through a callback to display text progressively in the UI.
+ * 
+ * @param productivity The productivity summary metrics.
+ * @param prediction The routine prediction metrics.
+ * @param anomalies Detected anomalies in behavior.
+ * @param customApiKey Optional user-supplied Gemini API key.
+ * @param persona The chosen persona/attitude of the AI coach.
+ * @param onStreamChunk Optional callback function invoked when a new streaming text chunk is decoded.
+ * @returns The final full AiInsight object, or null if the request failed.
+ */
 export async function fetchGeminiAiInsight(
     productivity: ProductivitySummary,
     prediction: RoutinePrediction,
     anomalies: Anomaly[],
     customApiKey?: string,
-    persona?: 'tough' | 'encouraging' | 'data-driven' | 'direct'
+    persona?: 'tough' | 'encouraging' | 'data-driven' | 'direct',
+    onStreamChunk?: (partial: Partial<AiInsight>) => void
 ): Promise<AiInsight | null> {
     const apiKey = customApiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) return null;
@@ -629,18 +692,17 @@ export async function fetchGeminiAiInsight(
         coachName = "Direct Coach";
     }
 
-    try {
-        const stats = {
-            productivityScore: productivity.score,
-            productivePercent: productivity.productivePercent,
-            nonProductivePercent: productivity.nonProductivePercent,
-            bestWindow: productivity.bestWindow,
-            nextLikelyLocation: prediction.nextLikelyLocation,
-            predictionConfidence: prediction.confidence,
-            anomalies: anomalies.map(a => a.message),
-        };
+    const stats = {
+        productivityScore: productivity.score,
+        productivePercent: productivity.productivePercent,
+        nonProductivePercent: productivity.nonProductivePercent,
+        bestWindow: productivity.bestWindow,
+        nextLikelyLocation: prediction.nextLikelyLocation,
+        predictionConfidence: prediction.confidence,
+        anomalies: anomalies.map(a => a.message),
+    };
 
-        const prompt = `You are a world-class AI Behavioral Coach named ${coachName}. ${personaInstructions}
+    const prompt = `You are a world-class AI Behavioral Coach named ${coachName}. ${personaInstructions}
 Analyze this user's location tracking history statistics:
 ${JSON.stringify(stats, null, 2)}
 
@@ -652,8 +714,12 @@ Provide a highly personalized behavioral coaching summary in JSON format:
 }
 Do not include any markdown formatting or extra text, output ONLY valid JSON.`;
 
+    try {
+        const isStreamingSupported = onStreamChunk !== undefined;
+        const endpoint = isStreamingSupported ? 'streamGenerateContent' : 'generateContent';
+        
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:${endpoint}?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -666,24 +732,86 @@ Do not include any markdown formatting or extra text, output ONLY valid JSON.`;
 
         if (!response.ok) return null;
 
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) return null;
+        const timestampStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-        const parsed = JSON.parse(text);
-        return {
-            narrative: parsed.narrative || '',
-            focusRecommendation: parsed.focusRecommendation || '',
-            routineRecommendation: parsed.routineRecommendation || '',
-            coachName: coachName,
-            timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        };
+        // Stream reader branch (Web and compatible React Native bundles)
+        if (isStreamingSupported && response.body && typeof response.body.getReader === 'function') {
+            const reader = response.body.getReader();
+            let buffer = '';
+            let fullText = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                // Decode raw bytes to string
+                const chunk = global.Buffer 
+                    ? global.Buffer.from(value).toString('utf8') 
+                    : new TextDecoder().decode(value, { stream: true });
+                
+                buffer += chunk;
+
+                // Match all "text" properties inside streamed NDJSON array candidates
+                const matches = buffer.matchAll(/"text"\s*:\s*"((?:\\.|[^"\\])*)"/g);
+                let currentFullText = '';
+                for (const match of matches) {
+                    try {
+                        const partText = JSON.parse(`"${match[1]}"`);
+                        currentFullText += partText;
+                    } catch {
+                        // Skip uncompleted unicode escaping sequence at boundary
+                    }
+                }
+
+                if (currentFullText !== fullText) {
+                    fullText = currentFullText;
+                    const partialInsight = parsePartialJson(fullText);
+                    onStreamChunk({
+                        ...partialInsight,
+                        coachName,
+                        timestamp: timestampStr,
+                    });
+                }
+            }
+
+            const finalInsight = parsePartialJson(fullText);
+            return {
+                narrative: finalInsight.narrative || '',
+                focusRecommendation: finalInsight.focusRecommendation || '',
+                routineRecommendation: finalInsight.routineRecommendation || '',
+                coachName,
+                timestamp: timestampStr,
+            };
+        } else {
+            // Standard non-streaming branch
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) return null;
+
+            const parsed = JSON.parse(text);
+            const finalResult = {
+                narrative: parsed.narrative || '',
+                focusRecommendation: parsed.focusRecommendation || '',
+                routineRecommendation: parsed.routineRecommendation || '',
+                coachName,
+                timestamp: timestampStr,
+            };
+            onStreamChunk?.(finalResult);
+            return finalResult;
+        }
     } catch (e) {
         console.error('Failed to fetch Gemini AI insights:', e);
         return null;
     }
 }
 
+/**
+ * Synchronously generates the intelligence report.
+ * 
+ * @param visits The list of tracked location visits.
+ * @param goals The list of defined goals.
+ * @returns The generated intelligence report.
+ */
 export function generateIntelligenceReport(
     visits: LocationVisit[],
     goals: GoalDefinition[] = getDefaultGoals()
@@ -695,6 +823,52 @@ export function generateIntelligenceReport(
     const patterns = detectPatterns(visits, productivity);
     const goalStatuses = evaluateGoals(visits, goals);
     
+    const aiInsight = generateLocalAiInsight(productivity, prediction, anomalies);
+
+    return {
+        patterns,
+        productivity,
+        goalStatuses,
+        anomalies,
+        heatmap,
+        prediction,
+        aiInsight,
+    };
+}
+
+/**
+ * Asynchronously generates the intelligence report by yielding to the event loop between heavy calculations.
+ * This offloads the CPU computation, keeping the UI responsive and avoiding frame drops on mobile devices.
+ * 
+ * @param visits The list of tracked location visits.
+ * @param goals The list of defined goals.
+ * @returns A promise that resolves to the intelligence report.
+ */
+export async function generateIntelligenceReportAsync(
+    visits: LocationVisit[],
+    goals: GoalDefinition[] = getDefaultGoals()
+): Promise<IntelligenceReport> {
+    const yieldToEventLoop = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    await yieldToEventLoop();
+    const productivity = calculateProductivity(visits);
+
+    await yieldToEventLoop();
+    const anomalies = detectAnomalies(visits);
+
+    await yieldToEventLoop();
+    const prediction = predictRoutine(visits);
+
+    await yieldToEventLoop();
+    const heatmap = buildHeatmap(visits);
+
+    await yieldToEventLoop();
+    const patterns = detectPatterns(visits, productivity);
+
+    await yieldToEventLoop();
+    const goalStatuses = evaluateGoals(visits, goals);
+    
+    await yieldToEventLoop();
     const aiInsight = generateLocalAiInsight(productivity, prediction, anomalies);
 
     return {
