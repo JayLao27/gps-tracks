@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
     generateIntelligenceReport,
+    generateIntelligenceReportAsync,
     getDefaultGoals,
     getMockLocationVisits,
     type IntelligenceReport,
@@ -12,11 +13,17 @@ import {
 import { getTrackedVisits } from '@/services/locationTracking';
 import { getSecureItem, setSecureItem } from '../utils/secureStorage';
 
+/** Storage key for the Gemini API Key. Saved securely inside keychain/secureStore. */
 const STORAGE_KEY = '@gps_tracks:gemini_api_key';
+/** Storage key for the user's selected coaching persona. */
 const PERSONA_KEY = '@gps_tracks:coach_persona';
 
 export type CoachPersona = 'tough' | 'encouraging' | 'data-driven' | 'direct';
 
+/**
+ * A custom hook to fetch, parse, cache, and manage behavioral intelligence reports and AI Habit Coaching.
+ * Implements token streaming, background offloading, secure storage, caching, and rate limiting.
+ */
 export function useIntelligenceReport() {
     const [report, setReport] = useState<IntelligenceReport>(() =>
         generateIntelligenceReport(getMockLocationVisits(), getDefaultGoals())
@@ -28,16 +35,21 @@ export function useIntelligenceReport() {
     const [apiKey, setApiKey] = useState<string>('');
     const [persona, setPersonaState] = useState<CoachPersona>('encouraging');
 
-    // Caching and Throttling Refs
+    // ----------------------------------------------------
+    // Caching, Throttling & Request Deduplication
+    // ----------------------------------------------------
+    
+    /** Cache ref holding the signature and result of the last successful AI API call. */
     const cacheRef = useRef<{
         signature: string;
         timestamp: number;
         data: AiInsight;
     } | null>(null);
     
+    /** Lock ref to prevent multiple duplicate concurrent insight API requests. */
     const isRequestPendingRef = useRef(false);
 
-    // Compute unique signature of inputs to cache responses
+    /** Generates a unique fingerprint signature of the coaching request input state. */
     const getInsightSignature = useCallback((
         prodScore: number,
         nextLoc: string,
@@ -47,7 +59,7 @@ export function useIntelligenceReport() {
         return `${prodScore}-${nextLoc}-${anomCount}-${p}`;
     }, []);
 
-    // Load key and persona preference on mount
+    // Load saved settings from Secure Store on mount
     useEffect(() => {
         const loadSavedSettings = async () => {
             try {
@@ -66,17 +78,19 @@ export function useIntelligenceReport() {
         loadSavedSettings();
     }, []);
 
+    /** Securely saves the user's Gemini API Key. */
     const saveApiKey = useCallback(async (newKey: string) => {
         try {
             await setSecureItem(STORAGE_KEY, newKey);
             setApiKey(newKey);
-            // Clear cache when API key changes
+            // Invalidate the cache immediately upon key changes
             cacheRef.current = null;
         } catch (err) {
             console.error('Failed to save Gemini key:', err);
         }
     }, []);
 
+    /** Saves the user's chosen coaching persona preference. */
     const savePersona = useCallback(async (newPersona: CoachPersona) => {
         try {
             await setSecureItem(PERSONA_KEY, newPersona);
@@ -86,6 +100,10 @@ export function useIntelligenceReport() {
         }
     }, []);
 
+    /**
+     * Refreshes the telemetry data report and fetches updated AI coaching advice.
+     * Analytical calculations are offloaded asynchronously to keep the UI responsive.
+     */
     const refresh = useCallback(async (currentKey?: any) => {
         setLoading(true);
         let activeReport = report;
@@ -94,12 +112,13 @@ export function useIntelligenceReport() {
             const trackedVisits = await getTrackedVisits(21);
 
             if (trackedVisits.length > 0) {
-                const nextReport = generateIntelligenceReport(trackedVisits, getDefaultGoals());
+                // Offload calculation asynchronously to avoid thread blocking
+                const nextReport = await generateIntelligenceReportAsync(trackedVisits, getDefaultGoals());
                 setReport(nextReport);
                 activeReport = nextReport;
                 setSource('live');
             } else {
-                const nextReport = generateIntelligenceReport(getMockLocationVisits(), getDefaultGoals());
+                const nextReport = await generateIntelligenceReportAsync(getMockLocationVisits(), getDefaultGoals());
                 setReport(nextReport);
                 activeReport = nextReport;
                 setSource('mock');
@@ -113,12 +132,11 @@ export function useIntelligenceReport() {
             setLoading(false);
         }
 
-        // Refresh AI insights
+        // Fetch AI coaching feedback
         setAiLoading(true);
         try {
             const keyToUse = (currentKey && typeof currentKey === 'string') ? currentKey : apiKey;
             
-            // Check cache
             const signature = getInsightSignature(
                 activeReport.productivity.score,
                 activeReport.prediction.nextLikelyLocation,
@@ -126,35 +144,52 @@ export function useIntelligenceReport() {
                 persona
             );
 
+            // Caching: Return cached results if signature matches and is under 5 minutes old
             if (
                 cacheRef.current &&
                 cacheRef.current.signature === signature &&
-                Date.now() - cacheRef.current.timestamp < 5 * 60 * 1000 // 5 minutes cache
+                Date.now() - cacheRef.current.timestamp < 5 * 60 * 1000
             ) {
                 setAiInsight(cacheRef.current.data);
                 setAiLoading(false);
                 return;
             }
 
-            // Request Throttling: prevent concurrent requests
+            // Throttling: Return immediately if another API request is already pending
             if (isRequestPendingRef.current) {
                 setAiLoading(false);
                 return;
             }
             isRequestPendingRef.current = true;
 
+            // Reset insight to prompt real-time typing/streaming effect in the UI
+            setAiInsight({
+                narrative: '',
+                focusRecommendation: '',
+                routineRecommendation: '',
+                coachName: 'Active Coach',
+                timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            });
+
+            // Fetch with stream callback chunk updates
             const apiResult = await fetchGeminiAiInsight(
                 activeReport.productivity,
                 activeReport.prediction,
                 activeReport.anomalies,
                 keyToUse,
-                persona
+                persona,
+                (partialChunk) => {
+                    setAiInsight((prev) => ({
+                        ...prev,
+                        ...partialChunk,
+                    }));
+                }
             );
 
             isRequestPendingRef.current = false;
 
             if (apiResult) {
-                // Save to cache
+                // Update caching ref with the final aggregated result
                 cacheRef.current = {
                     signature,
                     timestamp: Date.now(),
@@ -172,12 +207,12 @@ export function useIntelligenceReport() {
         }
     }, [apiKey, report, persona, getInsightSignature]);
 
+    /** Fetches updated AI feedback focusing exclusively on the current active report. */
     const refreshAiAdvice = useCallback(async (currentKey?: any) => {
         setAiLoading(true);
         try {
             const keyToUse = (currentKey && typeof currentKey === 'string') ? currentKey : apiKey;
 
-            // Check cache
             const signature = getInsightSignature(
                 report.productivity.score,
                 report.prediction.nextLikelyLocation,
@@ -188,26 +223,39 @@ export function useIntelligenceReport() {
             if (
                 cacheRef.current &&
                 cacheRef.current.signature === signature &&
-                Date.now() - cacheRef.current.timestamp < 5 * 60 * 1000 // 5 minutes
+                Date.now() - cacheRef.current.timestamp < 5 * 60 * 1000
             ) {
                 setAiInsight(cacheRef.current.data);
                 setAiLoading(false);
                 return;
             }
 
-            // Throttling
             if (isRequestPendingRef.current) {
                 setAiLoading(false);
                 return;
             }
             isRequestPendingRef.current = true;
 
+            setAiInsight({
+                narrative: '',
+                focusRecommendation: '',
+                routineRecommendation: '',
+                coachName: 'Active Coach',
+                timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            });
+
             const apiResult = await fetchGeminiAiInsight(
                 report.productivity,
                 report.prediction,
                 report.anomalies,
                 keyToUse,
-                persona
+                persona,
+                (partialChunk) => {
+                    setAiInsight((prev) => ({
+                        ...prev,
+                        ...partialChunk,
+                    }));
+                }
             );
 
             isRequestPendingRef.current = false;
@@ -240,7 +288,7 @@ export function useIntelligenceReport() {
         }
     }, [apiKey, report, persona, getInsightSignature]);
 
-    // Initial load when mounting or when key/persona is loaded or changed
+    // Perform an initial fetch on mount and whenever settings are loaded/altered
     useEffect(() => {
         refresh();
     }, [apiKey, persona]);
