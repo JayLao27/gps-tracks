@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { type IntelligenceReport } from '@/services/locationIntelligence';
 import { type CoachPersona } from '@/hooks/useIntelligenceReport';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface ChatMessage {
     id: string;
@@ -8,6 +9,8 @@ export interface ChatMessage {
     text: string;
     timestamp: string;
 }
+
+const HISTORY_KEY = '@gps_tracks:chat_history_v2';
 
 const getWelcomeMessage = (persona: CoachPersona): string => {
     switch (persona) {
@@ -24,6 +27,8 @@ const getWelcomeMessage = (persona: CoachPersona): string => {
     }
 };
 
+// TODO: FUTURE CHATBOT ARCHITECTURAL IMPROVEMENTS:
+// 1. OFFLINE QUEUE: Allow typing messages while offline, caching them, and sending them automatically when internet connectivity returns.
 export function useIntelligenceChat(
     report: IntelligenceReport,
     apiKey: string,
@@ -32,22 +37,36 @@ export function useIntelligenceChat(
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Initialize/Reset welcome message when persona changes or chat is cleared
-    const initializeChat = useCallback(() => {
-        const welcomeText = getWelcomeMessage(persona);
-        setMessages([
-            {
-                id: 'welcome',
-                role: 'model',
-                text: welcomeText,
-                timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            },
-        ]);
-    }, [persona]);
-
+    // Load saved history from AsyncStorage on mount / persona change
     useEffect(() => {
-        initializeChat();
-    }, [initializeChat]);
+        let isMounted = true;
+        const loadHistory = async () => {
+            try {
+                const stored = await AsyncStorage.getItem(`${HISTORY_KEY}_${persona}`);
+                if (isMounted) {
+                    if (stored) {
+                        setMessages(JSON.parse(stored));
+                    } else {
+                        const welcomeText = getWelcomeMessage(persona);
+                        setMessages([
+                            {
+                                id: 'welcome',
+                                role: 'model',
+                                text: welcomeText,
+                                timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                            },
+                        ]);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load chat history:', err);
+            }
+        };
+        loadHistory();
+        return () => {
+            isMounted = false;
+        };
+    }, [persona]);
 
     // Rule-based fallback responses when Gemini API Key is not set
     const getMockResponse = useCallback((userText: string): string => {
@@ -154,15 +173,22 @@ export function useIntelligenceChat(
             timestamp: timestampStr,
         };
 
-        setMessages((prev) => [...prev, userMsg]);
+        const updatedMessages = [...messages, userMsg];
+        setMessages(updatedMessages);
         setIsLoading(true);
+
+        try {
+            await AsyncStorage.setItem(`${HISTORY_KEY}_${persona}`, JSON.stringify(updatedMessages));
+        } catch (err) {
+            console.error('Failed to save user message history:', err);
+        }
 
         // Check if API key is provided
         const activeKey = apiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'AIzaSyCr49Xp8Lj_XxQ--SQoPscXQVFgAyqOklg';
 
         if (!activeKey) {
-            // Fallback to high-fidelity mock responses after a short realistic typing delay
-            setTimeout(() => {
+            // Fallback to mock responses after typing delay
+            setTimeout(async () => {
                 const responseText = getMockResponse(text);
                 const coachMsg: ChatMessage = {
                     id: `msg-${Date.now()}-coach`,
@@ -170,8 +196,14 @@ export function useIntelligenceChat(
                     text: responseText,
                     timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                 };
-                setMessages((prev) => [...prev, coachMsg]);
+                const finalMessages = [...updatedMessages, coachMsg];
+                setMessages(finalMessages);
                 setIsLoading(false);
+                try {
+                    await AsyncStorage.setItem(`${HISTORY_KEY}_${persona}`, JSON.stringify(finalMessages));
+                } catch (err) {
+                    console.error('Failed to save mock coach message history:', err);
+                }
             }, 1000);
             return;
         }
@@ -225,19 +257,18 @@ Instructions:
         try {
             // Build the contents history for Gemini multi-turn conversation
             // Filter out the welcome message because it doesn't match standard user-model-user sequence
-            const apiHistory = messages
+            // Slice the last 20 messages to keep the context window optimized and prevent token limits
+            const apiHistory = updatedMessages
                 .filter((m) => m.id !== 'welcome')
+                .slice(-20)
                 .map((m) => ({
                     role: m.role,
                     parts: [{ text: m.text }],
                 }));
 
-            // Append the new user message
-            apiHistory.push({
-                role: 'user',
-                parts: [{ text: text.trim() }],
-            });
-
+            // TODO: IMPROVEMENT: Token streaming
+            // Integrate streamGenerateContent API to stream chunks back to the UI in real-time,
+            // parsing chunks as they arrive for a smoother, ChatGPT-like messaging experience.
             const response = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`,
                 {
@@ -269,7 +300,10 @@ Instructions:
                 text: textResponse.trim(),
                 timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             };
-            setMessages((prev) => [...prev, coachMsg]);
+            
+            const finalMessages = [...updatedMessages, coachMsg];
+            setMessages(finalMessages);
+            await AsyncStorage.setItem(`${HISTORY_KEY}_${persona}`, JSON.stringify(finalMessages));
 
         } catch (e) {
             console.error('Error talking to Gemini chat API:', e);
@@ -281,15 +315,32 @@ Instructions:
                 text: `${fallbackText} (Note: Using local fallback. Ensure a valid Gemini API key is configured by tapping the key icon in the Coach card and verify your internet connection.)`,
                 timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             };
-            setMessages((prev) => [...prev, coachMsg]);
+            const finalMessages = [...updatedMessages, coachMsg];
+            setMessages(finalMessages);
+            await AsyncStorage.setItem(`${HISTORY_KEY}_${persona}`, JSON.stringify(finalMessages)).catch(err => {
+                console.error('Failed to save fallback history:', err);
+            });
         } finally {
             setIsLoading(false);
         }
     }, [apiKey, report, persona, messages, getMockResponse]);
 
-    const clearChat = useCallback(() => {
-        initializeChat();
-    }, [initializeChat]);
+    const clearChat = useCallback(async () => {
+        try {
+            await AsyncStorage.removeItem(`${HISTORY_KEY}_${persona}`);
+            const welcomeText = getWelcomeMessage(persona);
+            setMessages([
+                {
+                    id: 'welcome',
+                    role: 'model',
+                    text: welcomeText,
+                    timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                },
+            ]);
+        } catch (err) {
+            console.error('Failed to clear chat history:', err);
+        }
+    }, [persona]);
 
     return {
         messages,
