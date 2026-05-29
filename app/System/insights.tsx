@@ -25,7 +25,6 @@ function toHours(minutes: number): string {
 
 export default function Insights() {
     const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice, apiKey, saveApiKey, persona, savePersona } = useIntelligenceReport();
-    const [showKeyInput, setShowKeyInput] = useState(false);
     const { colors, isDark } = useTheme();
 
     const { messages, sendMessage, clearChat, isLoading: chatLoading } = useIntelligenceChat(report, apiKey, persona);
@@ -95,12 +94,6 @@ export default function Insights() {
                                 <Text className="ml-2 text-sm font-black uppercase tracking-wider" style={{ color: colors.textPrimary }}>
                                     AI Habit Coach
                                 </Text>
-                                <Pressable 
-                                    onPress={() => setShowKeyInput(!showKeyInput)}
-                                    className="ml-2.5 p-1 rounded-lg bg-indigo-500/15 border border-indigo-400/20 active:bg-indigo-500/30"
-                                >
-                                    <Ionicons name="key-outline" size={10} color="#c084fc" />
-                                </Pressable>
                             </View>
                             <View 
                                 className="flex-row items-center rounded-full border px-2.5 py-0.5"
@@ -112,31 +105,6 @@ export default function Insights() {
                                 </Text>
                             </View>
                         </View>
-
-                        {showKeyInput && (
-                            <View 
-                                className="mt-3.5 p-3.5 rounded-2xl border"
-                                style={{ backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : '#ffffff', borderColor: colors.cardBorder }}
-                            >
-                                <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textSecondary }}>
-                                    Gemini API Key (EXPO_PUBLIC_GEMINI_API_KEY)
-                                </Text>
-                                <TextInput
-                                    className="mt-2 rounded-xl px-3 py-2.5 text-xs border"
-                                    style={{ backgroundColor: isDark ? '#020617' : '#f8fafc', color: colors.textPrimary, borderColor: colors.aiBorder }}
-                                    secureTextEntry={true}
-                                    value={apiKey}
-                                    onChangeText={saveApiKey}
-                                    placeholder="Paste your Gemini API key here..."
-                                    placeholderTextColor="#475569"
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                />
-                                <Text className="text-[9px] mt-2 leading-normal" style={{ color: colors.textTertiary }}>
-                                    Get a key for free in Google AI Studio. Saved locally and sent directly to Gemini Pro API.
-                                </Text>
-                            </View>
-                        )}
 
                         {/* Coach Persona Selector */}
                         <View className="mt-4">
