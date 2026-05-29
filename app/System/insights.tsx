@@ -1,10 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
-import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
+import { useIntelligenceReport, type CoachPersona } from '@/hooks/useIntelligenceReport';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { useIntelligenceChat } from '@/hooks/useIntelligenceChat';
+
+function getPersonaColor(persona: CoachPersona): string {
+    switch (persona) {
+        case 'tough':
+            return '#f43f5e';
+        case 'encouraging':
+            return '#10b981';
+        case 'data-driven':
+            return '#06b6d4';
+        default:
+            return '#4f46e5';
+    }
+}
 
 function toHours(minutes: number): string {
     return `${(minutes / 60).toFixed(1)}h`;
@@ -500,6 +513,11 @@ export default function Insights() {
                         backgroundColor: isDark ? '#090d16' : '#f8fafc',
                     }}
                 >
+                    {/* TODO: UI/UX CHAT IMPROVEMENTS:
+                        1. PERSONA-SPECIFIC THEMES: Apply distinct background/accent gradients based on the persona (e.g. rose red tones for Tough Coach, warm gold for Encouraging).
+                        2. TYPING BUBBLE ANIMATION: Replace the static ActivityIndicator with a custom animated triple-dot bounce component using React Native Animated.
+                        3. SPEECH-TO-TEXT: Add a microphone button in the input bar to support voice input.
+                    */}
                     <KeyboardAvoidingView 
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
                         style={{ flex: 1 }}
@@ -533,7 +551,7 @@ export default function Insights() {
                                         backgroundColor: colors.aiBg, 
                                         alignItems: 'center', 
                                         justifyContent: 'center', 
-                                        borderColor: colors.aiBorder, 
+                                        borderColor: getPersonaColor(persona) + '33', 
                                         borderWidth: 1 
                                     }}
                                 >
@@ -544,7 +562,7 @@ export default function Insights() {
                                             persona === 'data-driven' ? 'analytics-outline' : 'flash-outline'
                                         } 
                                         size={18} 
-                                        color={colors.aiText} 
+                                        color={getPersonaColor(persona)} 
                                     />
                                 </View>
                                 <View style={{ marginLeft: 12 }}>
@@ -590,7 +608,7 @@ export default function Insights() {
                                             style={{ 
                                                 backgroundColor: isCoach 
                                                     ? (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.03)') 
-                                                    : '#4f46e5', 
+                                                    : getPersonaColor(persona), 
                                                 paddingHorizontal: 16, 
                                                 paddingVertical: 12, 
                                                 borderRadius: 20, 
@@ -735,7 +753,7 @@ export default function Insights() {
                                     width: 40, 
                                     height: 40, 
                                     borderRadius: 20, 
-                                    backgroundColor: inputText.trim() ? '#4f46e5' : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.03)'), 
+                                    backgroundColor: inputText.trim() ? getPersonaColor(persona) : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.03)'), 
                                     alignItems: 'center', 
                                     justifyContent: 'center' 
                                 }}
