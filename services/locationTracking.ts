@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import { AppState } from 'react-native';
 
 import { getEffectiveKnownPlaces } from './knownPlaces';
 import type { LocationCategory, LocationVisit } from './locationIntelligence';
@@ -172,7 +173,9 @@ export async function syncOfflineData(): Promise<void> {
                 location_name: p.locationName,
                 category: p.category,
             }));
-            const { error } = await supabase.from('location_pings').insert(rowsToInsert);
+            const { error } = await supabase
+                .from('location_pings')
+                .upsert(rowsToInsert, { onConflict: 'id' });
             if (!error) {
                 await writeLocalPings([]); // Clear the sync queue on success
             }
@@ -241,6 +244,20 @@ export function stopOfflineSyncTimer() {
 
 // Automatically start the background sync manager on module load
 startOfflineSyncTimer();
+
+// Listen to app state changes (foregrounding) to trigger sync immediately
+AppState.addEventListener('change', (nextAppState) => {
+    if (nextAppState === 'active') {
+        syncOfflineData();
+    }
+});
+
+// Listen for auth state changes (login) to sync locally buffered tracks
+supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        syncOfflineData();
+    }
+});
 
 /**
  * Persists a tracked coordinate ping.
