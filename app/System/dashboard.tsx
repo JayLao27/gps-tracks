@@ -33,6 +33,15 @@ function formatStationaryTime(seconds: number): string {
     return `${s}s`;
 }
 
+// TODO: FUTURE UI/UX ENHANCEMENTS:
+// 1. Live Map Preview: Integrate expo-maps or react-native-maps to draw a real-time breadcrumb path
+//    of the active tracking session inside the "Recording Live GPS" card.
+// 2. Dynamic Tagging / Notes: Allow users to append active labels (e.g. "commute", "running errand", "hiking")
+//    directly during a live session instead of auto-assigning activity type afterwards.
+// 3. Power-Draining Warning: Display a visual indicator warning when GPS tracking has been active
+//    for over 4 hours to help users prevent unintentional battery drain.
+// 4. Pull-to-Refresh: Implement a RefreshControl on the ScrollView to trigger refresh() and refreshTracks()
+//    on user drag.
 export default function Dashboard() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
@@ -47,6 +56,7 @@ export default function Dashboard() {
         stationaryTime,
         activePlace,
         speed,
+        steps,
         savedSessionsCount,
         startTracking,
         stopTracking,
@@ -215,7 +225,7 @@ export default function Dashboard() {
                                         <View className="mt-4 flex-row items-center justify-between border-t pt-3" style={{ borderTopColor: colors.cardBorder }}>
                                             <View>
                                                 <Text className="text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
-                                                    Dwell Duration
+                                                    Duration
                                                 </Text>
                                                 <Text className="mt-0.5 text-xs font-extrabold" style={{ color: colors.textPrimary }}>
                                                     {stationaryTime > 0 ? formatStationaryTime(stationaryTime) : '0s'}
@@ -227,6 +237,14 @@ export default function Dashboard() {
                                                 </Text>
                                                 <Text className="mt-0.5 text-xs font-extrabold" style={{ color: colors.textPrimary }}>
                                                     {formatSpeed(speed)}
+                                                </Text>
+                                            </View>
+                                            <View className="items-center">
+                                                <Text className="text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
+                                                    Steps
+                                                </Text>
+                                                <Text className="mt-0.5 text-xs font-extrabold" style={{ color: colors.textPrimary }}>
+                                                    {steps || 0}
                                                 </Text>
                                             </View>
                                             <View className="items-end">
