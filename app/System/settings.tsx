@@ -1,3 +1,11 @@
+// TODO: FUTURE SETTINGS ENHANCEMENTS & TELEMETRY DIAGNOSTICS:
+// 1. OS-Level Permission Troubleshooter: Provide step-by-step guidance or interactive tests (e.g. checks via IntentLauncher
+//    on Android) to verify if the OS has restricted background execution, helping users diagnose missed pings.
+// 2. Clear Local telemetry Database: Add an option to purge SQLite local cache (gps_tracks.location_pings)
+//    to free up on-device storage.
+// 3. Export History (GPX/KML/JSON): Allow exporting the entire spatial footprint list to standard formats
+//    for integration with third-party tools like Google Earth or Strava.
+
 import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
 import { getCurrentUser, logoutUser } from '@/services/authService';
 import { type User } from '@/services/database';
