@@ -1,16 +1,55 @@
+// TODO: FUTURE ACTIVITY & ROUTE ENHANCEMENTS:
+// 1. Detailed Map Replay: Support opening a detailed model drawing the full GPS route breadcrumb trail
+//    on an interactive map with zoom and scrub controls.
+// 2. Activity Type Filtering: Extend filter pill capsules to filter by "Walk", "Run", or "Ride"
+//    in addition to time ranges, using appropriate icons.
+// 3. Telemetry Search: Add a text query input to search recorded sessions by location name or notes.
+
 import { useTracks } from '@/hooks/useTracks';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 const filters = ['All', 'This Week', 'This Month'];
 
 export default function Activity() {
     const [activeFilter, setActiveFilter] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
     const { tracks, loading, error, refresh } = useTracks();
     const { colors, isDark } = useTheme();
+
+    // Dynamically filter tracks based on period selection and text search query
+    const filteredTracks = tracks.filter((track) => {
+        // 1. Search query matching
+        if (searchQuery.trim() !== '') {
+            const query = searchQuery.toLowerCase();
+            const nameMatch = track.name.toLowerCase().includes(query);
+            const paceMatch = track.pace?.toLowerCase().includes(query);
+            if (!nameMatch && !paceMatch) return false;
+        }
+
+        // 2. Time period matching
+        if (activeFilter === 'All') return true;
+
+        try {
+            const trackDate = new Date(track.date);
+            const now = new Date();
+            const diffTime = Math.abs(now.getTime() - trackDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (activeFilter === 'This Week') {
+                return diffDays <= 7;
+            }
+            if (activeFilter === 'This Month') {
+                return diffDays <= 30;
+            }
+        } catch {
+            return true;
+        }
+        return true;
+    });
 
     return (
         <LinearGradient
@@ -71,6 +110,31 @@ export default function Activity() {
                     </View>
                 </View>
 
+                {/* Search Bar */}
+                <View className="px-6 pt-5">
+                    <View 
+                        className="flex-row items-center rounded-2xl border px-3.5 py-2"
+                        style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+                    >
+                        <Ionicons name="search-outline" size={14} color={colors.textTertiary} />
+                        <TextInput
+                            className="ml-2.5 flex-1 text-xs font-semibold"
+                            style={{ color: colors.textPrimary, paddingVertical: 4 }}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholder="Search tracks by name..."
+                            placeholderTextColor={colors.textTertiary}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                        {searchQuery !== '' && (
+                            <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                                <Ionicons name="close-circle" size={15} color={colors.textTertiary} />
+                            </Pressable>
+                        )}
+                    </View>
+                </View>
+
                 {/* Filter Pill Capsules */}
                 <View className="flex-row gap-2 px-6 pt-6">
                     {filters.map((filter) => {
@@ -112,8 +176,14 @@ export default function Activity() {
                                 No tracks recorded yet. Start tracking from the dashboard to see them here!
                             </Text>
                         </View>
+                    ) : filteredTracks.length === 0 ? (
+                        <View className="rounded-2xl border p-6" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
+                            <Text className="text-center text-xs font-semibold leading-normal" style={{ color: colors.textSecondary }}>
+                                No tracks match your current search and filters.
+                            </Text>
+                        </View>
                     ) : (
-                        tracks.map((track) => {
+                        filteredTracks.map((track) => {
                             // Dynamic color border glowing and categorizing
                             const trackColor = track.color || '#34d399';
                             return (
