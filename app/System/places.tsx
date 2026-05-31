@@ -1,3 +1,11 @@
+// TODO: FUTURE PLACES & GEOFENCE ENHANCEMENTS:
+// 1. Visual Geofence Radius Map: Integrate interactive maps where users can drag a pin and resize a radius circle
+//    rather than inputting meters numerically.
+// 2. Custom Location Categories: Allow adding custom labels, custom colors, and Ionicons names,
+//    removing the strict restriction of hardcoded types (study, work, gym, etc.).
+// 3. Contact/Calendar Automation: Import addresses from the user's contacts or calendar events to automatically
+//    register geofence areas.
+
 import { useKnownPlaces } from '@/hooks/useKnownPlaces';
 import { suggestPlacesFromPings, type LocationCategory, type SuggestedPlace } from '@/services/locationIntelligence';
 import { getTrackedPings } from '@/services/locationTracking';
