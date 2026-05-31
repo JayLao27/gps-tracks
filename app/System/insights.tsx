@@ -23,6 +23,16 @@ function toHours(minutes: number): string {
     return `${(minutes / 60).toFixed(1)}h`;
 }
 
+// TODO: FUTURE ANALYTICAL & AI UI ENHANCEMENTS:
+// 1. Chart Visualizations: Replace the text-based lists and static goal bars with interactive charts
+//    (e.g., react-native-gifted-charts or victory-native) to plot productivity trends over time,
+//    circadian peak focus times, and place distributions.
+// 2. Chat Voice-to-Text: Integrate Speech-to-Text (expo-speech/voice) into the AI Coach chat dialog box
+//    allowing hands-free dialogue and interaction.
+// 3. Custom Goal Creation UI: Add an inline dashboard control permitting custom spatial/category goal
+//    creation directly from the Insights page rather than relying on predefined default goals.
+// 4. Heatmap View: Include a toggle-able visual geofenced heatmap overlaid on a map component showing
+//    where the user spends the most high-productivity time vs social time.
 export default function Insights() {
     const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice, apiKey, saveApiKey, persona, savePersona } = useIntelligenceReport();
     const { colors, isDark } = useTheme();
@@ -358,9 +368,17 @@ export default function Insights() {
                                     <Text className="text-[10px] font-bold uppercase" style={{ color: colors.textSecondary }}>
                                         Logged: {toHours(status.actualMinutes)} / {toHours(status.goal.targetMinutes)}
                                     </Text>
-                                    {!!status.alert && (
+                                    {status.achieved ? (
+                                        <Text className="text-[9px] font-black uppercase tracking-wide text-emerald-500" style={{ color: '#10b981' }}>
+                                            Completed! 🎉
+                                        </Text>
+                                    ) : status.alert ? (
                                         <Text className="text-[9px] font-bold uppercase tracking-wide" style={{ color: colors.warnText }}>
                                             {status.alert}
+                                        </Text>
+                                    ) : (
+                                        <Text className="text-[9px] font-bold uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+                                            {toHours(status.remainingMinutes)} left
                                         </Text>
                                     )}
                                 </View>
