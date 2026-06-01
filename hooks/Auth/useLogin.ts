@@ -1,3 +1,9 @@
+// TODO: FUTURE LOGIN & CONVENIENCE ENHANCEMENTS:
+// 1. Biometric Authentication (FaceID/TouchID): Integrate expo-local-authentication to prompt
+//    keychain-backed biometric login for returning users, skipping passcode input.
+// 2. Email Trimming & Sanitization: Clean the email string to trim leading/trailing whitespace
+//    before dispatching authentication API requests to avoid accidental credential mismatch.
+
 import { loginUser } from '@/services/authService';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
