@@ -151,6 +151,15 @@ let isSyncing = false;
 /**
  * Periodically uploads all offline-buffered pings, locations, and visit sessions to Supabase.
  * Batches high-frequency updates into bulk writes to save battery and network bandwidth.
+ * 
+ * DESIGN STRATEGY:
+ * - Concurrent Execution Guard: Uses `isSyncing` flag to prevent overlapping synchronization requests.
+ * - Identity Binding: Retrieves current authenticated userId. Anonymous logs generated while offline
+ *   are rebound to this active user ID during synchronization.
+ * - Error Isolation: Pings, raw locations, and visit sessions are synced in independent try-catch sub-flows.
+ *   If one queue fails (e.g. database constraint), it doesn't halt the syncing of other tables.
+ * - Queue Clearance: Only clears local AsyncStorage queues (e.g., writeLocalPings([])) if Supabase
+ *   returns no error, preventing data loss.
  */
 export async function syncOfflineData(): Promise<void> {
     if (isSyncing) return;
@@ -162,6 +171,9 @@ export async function syncOfflineData(): Promise<void> {
 
     try {
         // 1. Sync local location pings
+        // Reads cached TrackedLocationPing records. Pings are synchronized using an `upsert`
+        // operation with `onConflict: 'id'` config. This prevents unique constraint violations
+        // from halting progress if a subset of pings was already successfully inserted.
         const pings = await readLocalPings();
         if (pings.length > 0) {
             const rowsToInsert = pings.map((p) => ({
@@ -182,6 +194,9 @@ export async function syncOfflineData(): Promise<void> {
         }
 
         // 2. Sync local raw location logs
+        // Raw coordinate logs mapping high-resolution tracks are batched and uploaded.
+        // These logs use auto-incrementing serial primary keys on the DB side, so we use
+        // standard inserts. If successful, local locations storage is cleared.
         const locations = await readLocalLocations();
         if (locations.length > 0) {
             const rowsToInsert = locations.map((l) => ({
@@ -198,6 +213,8 @@ export async function syncOfflineData(): Promise<void> {
         }
 
         // 3. Sync local visit sessions
+        // Automatically detected dwell sessions (stay logs) are pushed to the remote DB.
+        // On success, the local visits queue is truncated/flushed.
         const visits = await readLocalVisits();
         if (visits.length > 0) {
             const rowsToInsert = visits.map((v) => ({
