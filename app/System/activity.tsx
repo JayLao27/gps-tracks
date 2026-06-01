@@ -13,14 +13,16 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { useTheme } from '@/hooks/useTheme';
 
 const filters = ['All', 'This Week', 'This Month'];
+const typeFilters = ['All Types', 'Walks', 'Runs', 'Rides'];
 
 export default function Activity() {
     const [activeFilter, setActiveFilter] = useState('All');
+    const [activeTypeFilter, setActiveTypeFilter] = useState('All Types');
     const [searchQuery, setSearchQuery] = useState('');
     const { tracks, loading, error, refresh } = useTracks();
     const { colors, isDark } = useTheme();
 
-    // Dynamically filter tracks based on period selection and text search query
+    // Dynamically filter tracks based on period selection, activity type, and text search query
     const filteredTracks = tracks.filter((track) => {
         // 1. Search query matching
         if (searchQuery.trim() !== '') {
@@ -30,7 +32,20 @@ export default function Activity() {
             if (!nameMatch && !paceMatch) return false;
         }
 
-        // 2. Time period matching
+        // 2. Activity type matching
+        if (activeTypeFilter !== 'All Types') {
+            const icon = (track.icon || '').toLowerCase();
+            const name = (track.name || '').toLowerCase();
+            if (activeTypeFilter === 'Walks') {
+                if (!icon.includes('footsteps') && !name.includes('walk') && !name.includes('hike')) return false;
+            } else if (activeTypeFilter === 'Runs') {
+                if (!icon.includes('walk') && !name.includes('run') && !name.includes('jog')) return false;
+            } else if (activeTypeFilter === 'Rides') {
+                if (!icon.includes('bicycle') && !name.includes('ride') && !name.includes('cycle')) return false;
+            }
+        }
+
+        // 3. Time period matching
         if (activeFilter === 'All') return true;
 
         try {
@@ -152,6 +167,31 @@ export default function Activity() {
                                 <Text
                                     className="text-xs font-bold uppercase tracking-wider"
                                     style={{ color: isSelected ? colors.productivityText : colors.textSecondary }}
+                                >
+                                    {filter}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+
+                {/* Activity Type Pill Capsules */}
+                <View className="flex-row gap-2 px-6 pt-2">
+                    {typeFilters.map((filter) => {
+                        const isSelected = activeTypeFilter === filter;
+                        return (
+                            <Pressable
+                                key={filter}
+                                onPress={() => setActiveTypeFilter(filter)}
+                                className="rounded-full px-4.5 py-1.5 border"
+                                style={{
+                                    backgroundColor: isSelected ? colors.aiBg : colors.cardBg,
+                                    borderColor: isSelected ? colors.aiBorder : colors.cardBorder,
+                                }}
+                            >
+                                <Text
+                                    className="text-[10px] font-extrabold uppercase tracking-wider"
+                                    style={{ color: isSelected ? colors.aiText : colors.textTertiary }}
                                 >
                                     {filter}
                                 </Text>

@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -51,6 +51,7 @@ const settingsSections: SettingsSection[] = [
         title: 'Tracking Core',
         items: [
             { icon: 'pin-outline', label: 'Manage Known Places', iconColor: '#34d399', type: 'link' },
+            { icon: 'help-buoy-outline', label: 'Background GPS Troubleshooter', iconColor: '#fb7185', type: 'link' },
             { icon: 'location-outline', label: 'High Accuracy GPS', iconColor: '#60a5fa', type: 'toggle', value: true },
             { icon: 'battery-half-outline', label: 'Battery Saver Mode', iconColor: '#f43f5e', type: 'toggle', value: false },
             { icon: 'analytics-outline', label: 'Auto-Pause Detection', iconColor: '#38bdf8', type: 'toggle', value: true },
@@ -72,6 +73,7 @@ const SETTINGS_PREFS_KEY = '@gps_tracks:settings_prefs';
 export default function Settings() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
+    const [showTroubleshooter, setShowTroubleshooter] = useState(false);
     const { report, source } = useIntelligenceReport();
     const { colors, isDark, toggleTheme } = useTheme();
     const [toggleStates, setToggleStates] = useState<Record<string, boolean>>(() => {
@@ -127,6 +129,8 @@ export default function Settings() {
     const handleLinkPress = (label: string) => {
         if (label === 'Manage Known Places') {
             router.push('/System/places');
+        } else if (label === 'Background GPS Troubleshooter') {
+            setShowTroubleshooter(true);
         }
     };
 
@@ -307,6 +311,108 @@ export default function Settings() {
                         </Text>
                     </Pressable>
                 </View>
+                {/* ── Background GPS Troubleshooter Modal ── */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={showTroubleshooter}
+                    onRequestClose={() => setShowTroubleshooter(false)}
+                >
+                    <View className="flex-1 items-center justify-center bg-black/60 px-6">
+                        <View 
+                            className="w-full max-w-[380px] overflow-hidden rounded-[32px] border p-6 shadow-2xl"
+                            style={{ backgroundColor: isDark ? '#0f172a' : '#ffffff', borderColor: colors.cardBorder }}
+                        >
+                            <View className="flex-row items-center justify-between border-b pb-4 mb-4" style={{ borderBottomColor: colors.cardBorder }}>
+                                <View className="flex-row items-center">
+                                    <Ionicons name="help-buoy-outline" size={20} color="#fb7185" />
+                                    <Text className="ml-2 text-base font-black tracking-tight" style={{ color: colors.textPrimary }}>
+                                        GPS Telemetry Fixer
+                                    </Text>
+                                </View>
+                                <Pressable onPress={() => setShowTroubleshooter(false)} hitSlop={8}>
+                                    <Ionicons name="close-outline" size={22} color={colors.textSecondary} />
+                                </Pressable>
+                            </View>
+
+                            <ScrollView showsVerticalScrollIndicator={false} className="max-h-[360px] pr-1">
+                                <Text className="text-xs leading-relaxed font-semibold mb-4" style={{ color: colors.textSecondary }}>
+                                    If background tracking stops unexpectedly or misses routes, check these standard system configurations:
+                                </Text>
+
+                                {/* Step 1 */}
+                                <View className="mb-4">
+                                    <View className="flex-row items-center mb-1">
+                                        <View className="h-5 w-5 rounded-full items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
+                                            <Text className="text-[10px] font-black text-emerald-500">1</Text>
+                                        </View>
+                                        <Text className="ml-2 text-xs font-bold" style={{ color: colors.textPrimary }}>
+                                            Location Permissions (Always Allow)
+                                        </Text>
+                                    </View>
+                                    <Text className="text-[10px] leading-relaxed ml-7" style={{ color: colors.textTertiary }}>
+                                        iOS & Android require location authorization to be set to <Text className="font-extrabold" style={{ color: colors.textSecondary }}>"Allow all the time"</Text> for background geofencing. Check Settings &gt; Apps &gt; GPS Tracks &gt; Permissions.
+                                    </Text>
+                                </View>
+
+                                {/* Step 2 */}
+                                <View className="mb-4">
+                                    <View className="flex-row items-center mb-1">
+                                        <View className="h-5 w-5 rounded-full items-center justify-center bg-indigo-500/10 border border-indigo-500/20">
+                                            <Text className="text-[10px] font-black text-indigo-500">2</Text>
+                                        </View>
+                                        <Text className="ml-2 text-xs font-bold" style={{ color: colors.textPrimary }}>
+                                            Battery Optimization (Android)
+                                        </Text>
+                                    </View>
+                                    <Text className="text-[10px] leading-relaxed ml-7" style={{ color: colors.textTertiary }}>
+                                        Android OS aggressively suspends location services. Exclude this app from optimization: Settings &gt; Battery &gt; Battery Optimization &gt; GPS Tracks &gt; <Text className="font-extrabold" style={{ color: colors.textSecondary }}>Don't Optimize / Unrestricted</Text>.
+                                    </Text>
+                                </View>
+
+                                {/* Step 3 */}
+                                <View className="mb-4">
+                                    <View className="flex-row items-center mb-1">
+                                        <View className="h-5 w-5 rounded-full items-center justify-center bg-amber-500/10 border border-amber-500/20">
+                                            <Text className="text-[10px] font-black text-amber-500">3</Text>
+                                        </View>
+                                        <Text className="ml-2 text-xs font-bold" style={{ color: colors.textPrimary }}>
+                                            Background App Refresh (iOS)
+                                        </Text>
+                                    </View>
+                                    <Text className="text-[10px] leading-relaxed ml-7" style={{ color: colors.textTertiary }}>
+                                        Toggle iOS system refresh enabled: Settings &gt; General &gt; Background App Refresh &gt; <Text className="font-extrabold" style={{ color: colors.textSecondary }}>On (Wi-Fi & Mobile Data)</Text>.
+                                    </Text>
+                                </View>
+
+                                {/* Step 4 */}
+                                <View className="mb-2">
+                                    <View className="flex-row items-center mb-1">
+                                        <View className="h-5 w-5 rounded-full items-center justify-center bg-rose-500/10 border border-rose-500/20">
+                                            <Text className="text-[10px] font-black text-rose-500">4</Text>
+                                        </View>
+                                        <Text className="ml-2 text-xs font-bold" style={{ color: colors.textPrimary }}>
+                                            Satellite Signal Line-of-Sight
+                                        </Text>
+                                    </View>
+                                    <Text className="text-[10px] leading-relaxed ml-7" style={{ color: colors.textTertiary }}>
+                                        Underground transit, thick concrete slabs, and dense skyscrapers block GPS signals. Adaptive tracking will resume automatically once connection is established.
+                                    </Text>
+                                </View>
+                            </ScrollView>
+
+                            <Pressable
+                                onPress={() => setShowTroubleshooter(false)}
+                                className="mt-5 rounded-2xl py-3 items-center active:opacity-85 shadow-md"
+                                style={{ backgroundColor: colors.isDark ? '#1e293b' : 'rgba(15,23,42,0.06)' }}
+                            >
+                                <Text className="text-xs font-black uppercase tracking-wider" style={{ color: colors.textPrimary }}>
+                                    Dismiss Diagnostic
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </Modal>
             </ScrollView>
         </LinearGradient>
     );
