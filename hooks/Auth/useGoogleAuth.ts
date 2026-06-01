@@ -1,3 +1,11 @@
+// TODO: FUTURE GOOGLE AUTH & OAUTH SECURITY ENHANCEMENTS:
+// 1. Dynamic Redirect URIs: Replace hardcoded 'http://localhost:8081' with AuthSession.makeRedirectUri()
+//    to support dynamic scheme redirection and deep links on native Android/iOS builds.
+// 2. PKCE Authorization Flow: Shift responseType from ResponseType.Token to ResponseType.Code and
+//    enable usePKCE: true to protect raw access tokens from escaping in browser histories.
+// 3. Platform-Specific Native Client IDs: Select client IDs dynamically based on the OS (e.g. Platform.select)
+//    using separate IDs for Google iOS, Android, and Web client configurations.
+
 import { loginOrRegisterWithGoogle } from '@/services/authService';
 import * as AuthSession from 'expo-auth-session';
 import { useRouter } from 'expo-router';
