@@ -91,7 +91,12 @@ export function useIntelligenceReport() {
         loadSavedSettings();
     }, []);
 
-    /** Adds a custom tracking goal. */
+    /** 
+     * Adds a custom tracking goal. 
+     * Generates a random unique ID, appends the goal to local state, stores the updated 
+     * list in AsyncStorage, and triggers an asynchronous report recalculation so the UI
+     * reflects the newly added goal target immediately.
+     */
     const addCustomGoal = useCallback(async (newGoal: Omit<GoalDefinition, 'id'>) => {
         try {
             const nextGoal: GoalDefinition = {
@@ -112,7 +117,11 @@ export function useIntelligenceReport() {
         }
     }, [goals]);
 
-    /** Removes a custom tracking goal. */
+    /** 
+     * Removes a custom tracking goal. 
+     * Filters out the target goal by ID, updates local state and AsyncStorage cache, 
+     * and triggers a background report recalculation to recalculate remaining minutes.
+     */
     const removeCustomGoal = useCallback(async (goalId: string) => {
         try {
             const nextGoals = goals.filter(g => g.id !== goalId);
@@ -154,6 +163,11 @@ export function useIntelligenceReport() {
     /**
      * Refreshes the telemetry data report and fetches updated AI coaching advice.
      * Analytical calculations are offloaded asynchronously to keep the UI responsive.
+     * 
+     * This function coordinates:
+     * 1. Querying raw sqlite tracked visits from the device databases.
+     * 2. Offloading computational heavy statistics calculations into web workers or background threads.
+     * 3. Fetching and rate-limiting dynamic Gemini Habit Insights.
      */
     const refresh = useCallback(async (currentKey?: any) => {
         setLoading(true);
