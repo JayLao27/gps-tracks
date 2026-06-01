@@ -1,3 +1,9 @@
+// TODO: FUTURE SIGNUP & SECURITY ENHANCEMENTS:
+// 1. Client-side Email Formatting Check: Add a regex validator (e.g., /\S+@\S+\.\S+/) to verify email structure
+//    locally, avoiding invalid network registration requests to Supabase auth APIs.
+// 2. Password Strength Analyzer: Implement strength metrics checking for mix of numbers, casing, and symbols,
+//    displaying dynamic visual strength feedback to the user on keypress.
+
 import { registerUser } from '@/services/authService';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
