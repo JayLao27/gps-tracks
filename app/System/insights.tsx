@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { useIntelligenceChat } from '@/hooks/useIntelligenceChat';
+import { type LocationCategory } from '@/services/locationIntelligence';
 
 function getPersonaColor(persona: CoachPersona): string {
     switch (persona) {
@@ -34,8 +35,29 @@ function toHours(minutes: number): string {
 // 4. Heatmap View: Include a toggle-able visual geofenced heatmap overlaid on a map component showing
 //    where the user spends the most high-productivity time vs social time.
 export default function Insights() {
-    const { report, source, loading, refresh, aiInsight, aiLoading, refreshAiAdvice, apiKey, saveApiKey, persona, savePersona } = useIntelligenceReport();
+    const {
+        report,
+        source,
+        loading,
+        refresh,
+        aiInsight,
+        aiLoading,
+        refreshAiAdvice,
+        apiKey,
+        saveApiKey,
+        persona,
+        savePersona,
+        goals,
+        addCustomGoal,
+        removeCustomGoal
+    } = useIntelligenceReport();
     const { colors, isDark } = useTheme();
+
+    const [showGoalForm, setShowGoalForm] = useState(false);
+    const [goalTitle, setGoalTitle] = useState('');
+    const [goalCategory, setGoalCategory] = useState<LocationCategory>('study');
+    const [goalTargetHours, setGoalTargetHours] = useState('2');
+    const [goalPeriod, setGoalPeriod] = useState<'daily' | 'weekly'>('daily');
 
     const { messages, sendMessage, clearChat, isLoading: chatLoading } = useIntelligenceChat(report, apiKey, persona);
     const [chatOpen, setChatOpen] = useState(false);
@@ -309,6 +331,124 @@ export default function Insights() {
                     <Text className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
                         Goals & Targets
                     </Text>
+
+                    <Pressable
+                        onPress={() => setShowGoalForm(!showGoalForm)}
+                        className="mb-4 flex-row items-center justify-between rounded-2xl border p-4 shadow-sm"
+                        style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+                    >
+                        <View className="flex-row items-center">
+                            <Ionicons name="add-circle-outline" size={16} color={colors.textSecondary} />
+                            <Text className="ml-2 text-xs font-extrabold uppercase tracking-wider" style={{ color: colors.textSecondary }}>
+                                Create Custom Goal
+                            </Text>
+                        </View>
+                        <Ionicons name={showGoalForm ? "chevron-up" : "chevron-down"} size={16} color={colors.textTertiary} />
+                    </Pressable>
+
+                    {showGoalForm && (
+                        <View 
+                            className="mb-4 rounded-3xl border p-4 shadow-md"
+                            style={{ backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.7)', borderColor: colors.cardBorder }}
+                        >
+                            <TextInput
+                                className="mb-3 rounded-xl border px-3.5 py-2.5 text-xs font-semibold"
+                                style={{ backgroundColor: isDark ? '#020617' : '#ffffff', color: colors.textPrimary, borderColor: colors.cardBorder }}
+                                value={goalTitle}
+                                onChangeText={setGoalTitle}
+                                placeholder="Goal title (e.g. Study Stride)"
+                                placeholderTextColor="#475569"
+                            />
+
+                            {/* Category Selector */}
+                            <Text className="mb-2 text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
+                                Target Place Category
+                            </Text>
+                            <View className="mb-3.5 flex-row flex-wrap gap-1.5">
+                                {(['study', 'work', 'gym', 'social', 'home', 'other'] as LocationCategory[]).map((cat) => {
+                                    const isSelected = goalCategory === cat;
+                                    return (
+                                        <Pressable
+                                            key={cat}
+                                            onPress={() => setGoalCategory(cat)}
+                                            className="rounded-full px-3 py-1.5 border"
+                                            style={{
+                                                backgroundColor: isSelected ? colors.productivityBg : (isDark ? 'rgba(0,0,0,0.2)' : 'rgba(15,23,42,0.02)'),
+                                                borderColor: isSelected ? colors.productivityBorder : colors.cardBorder,
+                                            }}
+                                        >
+                                            <Text
+                                                className="text-[10px] font-extrabold uppercase"
+                                                style={{ color: isSelected ? colors.productivityText : colors.textSecondary }}
+                                            >
+                                                {cat}
+                                            </Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+
+                            {/* Period & Target Hours */}
+                            <View className="mb-4 flex-row gap-3">
+                                <View className="flex-1">
+                                    <Text className="mb-2 text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
+                                        Time Window
+                                    </Text>
+                                    <View className="flex-row rounded-xl overflow-hidden border" style={{ borderColor: colors.cardBorder }}>
+                                        {(['daily', 'weekly'] as const).map((p) => {
+                                            const isSelected = goalPeriod === p;
+                                            return (
+                                                <Pressable
+                                                    key={p}
+                                                    onPress={() => setGoalPeriod(p)}
+                                                    className="flex-1 py-2 items-center"
+                                                    style={{ backgroundColor: isSelected ? colors.productivityBg : (isDark ? '#020617' : '#ffffff') }}
+                                                >
+                                                    <Text className="text-[10px] font-extrabold uppercase" style={{ color: isSelected ? colors.productivityText : colors.textSecondary }}>
+                                                        {p}
+                                                    </Text>
+                                                </Pressable>
+                                            );
+                                        })}
+                                    </View>
+                                </View>
+
+                                <View className="w-28">
+                                    <Text className="mb-2 text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
+                                        Target Hours
+                                    </Text>
+                                    <TextInput
+                                        className="rounded-xl border px-3 py-2 text-center text-xs font-semibold"
+                                        style={{ backgroundColor: isDark ? '#020617' : '#ffffff', color: colors.textPrimary, borderColor: colors.cardBorder }}
+                                        value={goalTargetHours}
+                                        onChangeText={setGoalTargetHours}
+                                        placeholder="Hours"
+                                        placeholderTextColor="#475569"
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+
+                            <Pressable
+                                onPress={async () => {
+                                    const parsedHours = parseFloat(goalTargetHours);
+                                    if (!goalTitle.trim() || Number.isNaN(parsedHours) || parsedHours <= 0) return;
+                                    await addCustomGoal({
+                                        title: goalTitle,
+                                        category: goalCategory,
+                                        targetMinutes: Math.round(parsedHours * 60),
+                                        period: goalPeriod
+                                    });
+                                    setGoalTitle('');
+                                    setGoalTargetHours('2');
+                                    setShowGoalForm(false);
+                                }}
+                                className="items-center rounded-2xl bg-emerald-500 py-3 active:bg-emerald-600 shadow-md shadow-emerald-950/20"
+                            >
+                                <Text className="text-xs font-black uppercase tracking-wider text-white">Create Target Goal</Text>
+                            </Pressable>
+                        </View>
+                    )}
                     {report.goalStatuses.map((status) => {
                         const progress = Math.min(100, Math.round((status.actualMinutes / status.goal.targetMinutes) * 100));
                         
@@ -350,6 +490,13 @@ export default function Insights() {
                                             size={15}
                                             color={status.achieved ? '#10b981' : colors.textTertiary}
                                         />
+                                        <Pressable 
+                                            onPress={() => removeCustomGoal(status.goal.id)}
+                                            className="ml-2.5 p-1 rounded-lg bg-rose-500/10 border border-rose-500/20 active:bg-rose-500/30"
+                                            hitSlop={8}
+                                        >
+                                            <Ionicons name="trash-outline" size={11} color="#f43f5e" />
+                                        </Pressable>
                                     </View>
                                 </View>
 

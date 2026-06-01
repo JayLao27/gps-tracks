@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
     generateIntelligenceReport,
@@ -9,6 +10,7 @@ import {
     type AiInsight,
     fetchGeminiAiInsight,
     generateLocalAiInsight,
+    type GoalDefinition,
 } from '@/services/locationIntelligence';
 import { getTrackedVisits } from '@/services/locationTracking';
 import { getSecureItem, setSecureItem } from '../utils/secureStorage';
@@ -28,6 +30,7 @@ export function useIntelligenceReport() {
     const [report, setReport] = useState<IntelligenceReport>(() =>
         generateIntelligenceReport(getMockLocationVisits(), getDefaultGoals())
     );
+    const [goals, setGoals] = useState<GoalDefinition[]>([]);
     const [source, setSource] = useState<'live' | 'mock'>('mock');
     const [loading, setLoading] = useState(false);
     const [aiInsight, setAiInsight] = useState<AiInsight>(() => report.aiInsight);
@@ -59,7 +62,7 @@ export function useIntelligenceReport() {
         return `${prodScore}-${nextLoc}-${anomCount}-${p}`;
     }, []);
 
-    // Load saved settings from Secure Store on mount
+    // Load saved settings from Secure Store and AsyncStorage on mount
     useEffect(() => {
         const loadSavedSettings = async () => {
             try {
@@ -71,12 +74,60 @@ export function useIntelligenceReport() {
                 if (savedPersona === 'tough' || savedPersona === 'encouraging' || savedPersona === 'data-driven' || savedPersona === 'direct') {
                     setPersonaState(savedPersona as CoachPersona);
                 }
+                
+                // Load custom goals list
+                const savedGoals = await AsyncStorage.getItem('@gps_tracks:custom_goals');
+                if (savedGoals) {
+                    setGoals(JSON.parse(savedGoals));
+                } else {
+                    const defaults = getDefaultGoals();
+                    setGoals(defaults);
+                    await AsyncStorage.setItem('@gps_tracks:custom_goals', JSON.stringify(defaults));
+                }
             } catch (err) {
                 console.error('Failed to load settings:', err);
             }
         };
         loadSavedSettings();
     }, []);
+
+    /** Adds a custom tracking goal. */
+    const addCustomGoal = useCallback(async (newGoal: Omit<GoalDefinition, 'id'>) => {
+        try {
+            const nextGoal: GoalDefinition = {
+                id: Math.random().toString(36).substring(2, 9),
+                ...newGoal
+            };
+            const nextGoals = [...goals, nextGoal];
+            setGoals(nextGoals);
+            await AsyncStorage.setItem('@gps_tracks:custom_goals', JSON.stringify(nextGoals));
+            
+            // Re-generate report with new goals
+            const trackedVisits = await getTrackedVisits(21);
+            const visits = trackedVisits.length > 0 ? trackedVisits : getMockLocationVisits();
+            const nextReport = await generateIntelligenceReportAsync(visits, nextGoals);
+            setReport(nextReport);
+        } catch (err) {
+            console.error('Failed to add custom goal:', err);
+        }
+    }, [goals]);
+
+    /** Removes a custom tracking goal. */
+    const removeCustomGoal = useCallback(async (goalId: string) => {
+        try {
+            const nextGoals = goals.filter(g => g.id !== goalId);
+            setGoals(nextGoals);
+            await AsyncStorage.setItem('@gps_tracks:custom_goals', JSON.stringify(nextGoals));
+            
+            // Re-generate report with new goals
+            const trackedVisits = await getTrackedVisits(21);
+            const visits = trackedVisits.length > 0 ? trackedVisits : getMockLocationVisits();
+            const nextReport = await generateIntelligenceReportAsync(visits, nextGoals);
+            setReport(nextReport);
+        } catch (err) {
+            console.error('Failed to remove custom goal:', err);
+        }
+    }, [goals]);
 
     /** Securely saves the user's Gemini API Key. */
     const saveApiKey = useCallback(async (newKey: string) => {
@@ -111,20 +162,33 @@ export function useIntelligenceReport() {
         try {
             const trackedVisits = await getTrackedVisits(21);
 
+            // Resolve custom goals list
+            let currentGoals = goals;
+            try {
+                const saved = await AsyncStorage.getItem('@gps_tracks:custom_goals');
+                if (saved) {
+                    currentGoals = JSON.parse(saved);
+                }
+            } catch {}
+            if (!currentGoals || currentGoals.length === 0) {
+                currentGoals = getDefaultGoals();
+            }
+
             if (trackedVisits.length > 0) {
                 // Offload calculation asynchronously to avoid thread blocking
-                const nextReport = await generateIntelligenceReportAsync(trackedVisits, getDefaultGoals());
+                const nextReport = await generateIntelligenceReportAsync(trackedVisits, currentGoals);
                 setReport(nextReport);
                 activeReport = nextReport;
                 setSource('live');
             } else {
-                const nextReport = await generateIntelligenceReportAsync(getMockLocationVisits(), getDefaultGoals());
+                const nextReport = await generateIntelligenceReportAsync(getMockLocationVisits(), currentGoals);
                 setReport(nextReport);
                 activeReport = nextReport;
                 setSource('mock');
             }
         } catch {
-            const nextReport = generateIntelligenceReport(getMockLocationVisits(), getDefaultGoals());
+            let fallbackGoals = goals.length > 0 ? goals : getDefaultGoals();
+            const nextReport = generateIntelligenceReport(getMockLocationVisits(), fallbackGoals);
             setReport(nextReport);
             activeReport = nextReport;
             setSource('mock');
@@ -295,6 +359,9 @@ export function useIntelligenceReport() {
 
     return {
         report,
+        goals,
+        addCustomGoal,
+        removeCustomGoal,
         source,
         loading,
         aiInsight,
