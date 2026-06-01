@@ -345,11 +345,11 @@ export default function Places() {
                         keyboardType="decimal-pad"
                     />
 
-                    <View className="flex-row justify-between items-center mb-4">
+                    <View className="mb-4 flex-row justify-start">
                         <Pressable
                             onPress={handleUseCurrentGps}
                             disabled={gpsLoading}
-                            className="flex-row items-center rounded-xl border px-3.5 py-2 active:bg-slate-900/40"
+                            className="flex-row items-center rounded-xl border px-4 py-2.5 active:bg-slate-900/40"
                             style={{ backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(15,23,42,0.03)', borderColor: colors.cardBorder }}
                         >
                             <Ionicons name="locate-outline" size={14} color={colors.textSecondary} />
@@ -357,14 +357,40 @@ export default function Places() {
                                 {gpsLoading ? 'Locating...' : 'Use Current GPS'}
                             </Text>
                         </Pressable>
-                        
-                        <View className="w-24">
+                    </View>
+
+                    <Text className="mb-2 text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
+                        Geofence Boundary Radius
+                    </Text>
+                    <View className="mb-4 flex-row items-center gap-2">
+                        {['100', '200', '500', '1000'].map((preset) => {
+                            const isSelected = radiusMeters === preset;
+                            return (
+                                <Pressable
+                                    key={preset}
+                                    onPress={() => setRadiusMeters(preset)}
+                                    className="rounded-xl px-3 py-2 border active:opacity-80"
+                                    style={{
+                                        backgroundColor: isSelected ? colors.productivityBg : (isDark ? 'rgba(0,0,0,0.2)' : 'rgba(15,23,42,0.02)'),
+                                        borderColor: isSelected ? colors.productivityBorder : colors.cardBorder,
+                                    }}
+                                >
+                                    <Text
+                                        className="text-xs font-bold uppercase"
+                                        style={{ color: isSelected ? colors.productivityText : colors.textSecondary }}
+                                    >
+                                        {preset === '1000' ? '1km' : `${preset}m`}
+                                    </Text>
+                                </Pressable>
+                            );
+                        })}
+                        <View className="flex-1 ml-1.5">
                             <TextInput
-                                className="rounded-xl border px-3.5 py-2 text-center text-xs"
+                                className="rounded-xl border px-3 py-2 text-center text-xs"
                                 style={{ backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : '#ffffff', color: colors.textPrimary, borderColor: colors.cardBorder }}
                                 value={radiusMeters}
                                 onChangeText={setRadiusMeters}
-                                placeholder="Radius"
+                                placeholder="Custom"
                                 placeholderTextColor="#475569"
                                 keyboardType="number-pad"
                             />

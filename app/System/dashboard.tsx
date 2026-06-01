@@ -83,9 +83,19 @@ export default function Dashboard() {
     const activeHours = (totalMinutes / 60).toFixed(1);
     const tracksCount = tracks.length;
 
+    // Estimate total pedometer steps based on average stride length for walk/run icons
+    const estimatedSteps = tracks.reduce((sum, t) => {
+        const isFoot = (t.icon || '').includes('footsteps') || (t.icon || '').includes('walk') || t.name.toLowerCase().includes('walk') || t.name.toLowerCase().includes('run');
+        if (isFoot) {
+            return sum + Math.round(parseFloat(t.distance || '0') * 1320); // 1320 steps per km average
+        }
+        return sum;
+    }, 0);
+
     const displayStats = [
         { label: 'Distance', value: totalDistance.toFixed(1), unit: 'km', icon: 'trail-sign-outline' as const, color: '#34d399' },
         { label: 'Active Time', value: activeHours, unit: 'hrs', icon: 'timer-outline' as const, color: '#60a5fa' },
+        { label: 'Steps', value: estimatedSteps >= 1000 ? `${(estimatedSteps / 1000).toFixed(1)}k` : estimatedSteps.toString(), unit: 'steps', icon: 'footsteps-outline' as const, color: '#c084fc' },
         { label: 'Tracks', value: tracksCount.toString(), unit: 'total', icon: 'map-outline' as const, color: '#f59e0b' },
     ];
 
@@ -344,12 +354,16 @@ export default function Dashboard() {
                 </View>
 
                 {/* Quick Stats Grid */}
-                <View className="flex-row gap-3 px-6 pt-5">
+                <View className="flex-row flex-wrap justify-between px-6 pt-5" style={{ gap: 12 }}>
                     {displayStats.map((stat) => (
                         <View
                             key={stat.label}
-                            className="flex-1 rounded-2xl border p-4 shadow-sm"
-                            style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+                            className="rounded-2xl border p-4 shadow-sm"
+                            style={{ 
+                                backgroundColor: colors.cardBg, 
+                                borderColor: colors.cardBorder,
+                                width: '48%' // 2 columns layout
+                            }}
                         >
                             <View
                                 className="mb-3 h-8 w-8 items-center justify-center rounded-lg"
