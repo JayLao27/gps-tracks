@@ -182,25 +182,37 @@ export async function addKnownPlace(
         return place;
     }
 
-    const { data, error } = await supabase
-        .from('known_places')
-        .insert({
-            id: place.id,
-            user_id: userId,
-            name: place.name,
-            category: place.category,
-            latitude: place.latitude,
-            longitude: place.longitude,
-            radius_meters: place.radiusMeters,
-        })
-        .select('id, user_id, name, category, latitude, longitude, radius_meters, created_at')
-        .single();
+    try {
+        const { data, error } = await supabase
+            .from('known_places')
+            .insert({
+                id: place.id,
+                user_id: userId,
+                name: place.name,
+                category: place.category,
+                latitude: place.latitude,
+                longitude: place.longitude,
+                radius_meters: place.radiusMeters,
+            })
+            .select('id, user_id, name, category, latitude, longitude, radius_meters, created_at')
+            .single();
 
-    if (error || !data) {
-        throw new Error(error?.message ?? 'Failed to add place.');
+        if (error || !data) {
+            // Save to local cache on DB failure (e.g., offline)
+            const existing = await readLocalKnownPlaces();
+            const next = [...existing, place];
+            await writeLocalKnownPlaces(next);
+            return place;
+        }
+
+        return mapFromSupabase(data as SupabaseKnownPlaceRow);
+    } catch {
+        // Save to local cache on network throws
+        const existing = await readLocalKnownPlaces();
+        const next = [...existing, place];
+        await writeLocalKnownPlaces(next);
+        return place;
     }
-
-    return mapFromSupabase(data as SupabaseKnownPlaceRow);
 }
 
 export async function deleteKnownPlace(placeId: string): Promise<void> {
@@ -221,5 +233,42 @@ export async function deleteKnownPlace(placeId: string): Promise<void> {
 
     if (error) {
         throw new Error(error.message);
+    }
+}
+
+/**
+ * Synchronizes any custom places added while offline or anonymous to Supabase.
+ * Auto-rebinds anonymous records to the current authenticated user's ID.
+ */
+export async function syncOfflineKnownPlaces(): Promise<void> {
+    const userId = await getCurrentUserId();
+    if (!userId) return;
+
+    const localPlaces = await readLocalKnownPlaces();
+    if (localPlaces.length === 0) return;
+
+    // Map custom offline place IDs to the active user's ID
+    const placesToSync = localPlaces.map((p) => ({
+        id: p.id.includes('anon-') ? `${userId}-${p.id.split('-').slice(1).join('-')}` : p.id,
+        user_id: userId,
+        name: p.name,
+        category: p.category,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        radius_meters: p.radiusMeters,
+    }));
+
+    try {
+        const { error } = await supabase
+            .from('known_places')
+            .upsert(placesToSync, { onConflict: 'id' });
+
+        if (!error) {
+            await writeLocalKnownPlaces([]);
+        } else {
+            console.error('Failed to sync offline known places:', error);
+        }
+    } catch (e) {
+        console.error('Error in syncOfflineKnownPlaces:', e);
     }
 }
