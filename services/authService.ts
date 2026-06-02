@@ -1,3 +1,11 @@
+// TODO: FUTURE AUTHENTICATION & SECURITY ENHANCEMENTS:
+// 1. Secure Token OAuth validation: Replace the hybrid password fallback (`__google_${email}`) with strictly-verified
+//    OAuth ID Tokens (JWTs) from Google client endpoints to prevent account compromise through email spoofing.
+// 2. Session Lifecycle Management: Implement automatic silent session refresh and inactivity checks to log users out
+//    after a custom duration of dashboard inactivity.
+// 3. Multi-Factor Authentication (MFA): Integrate Supabase MFA API helpers (e.g. supabase.auth.mfa.challenge)
+//    to permit enrolling and verifying secondary verification codes.
+
 import { getAuthUser, type User } from './database';
 import { supabase } from './supabase';
 
