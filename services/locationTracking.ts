@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { AppState } from 'react-native';
 
-import { getEffectiveKnownPlaces } from './knownPlaces';
+import { getEffectiveKnownPlaces, syncOfflineKnownPlaces } from './knownPlaces';
 import type { LocationCategory, LocationVisit } from './locationIntelligence';
 import { supabase } from './supabase';
 import { KalmanFilter, shouldDiscardPing } from '../utils/locationFilter';
@@ -229,6 +229,10 @@ export async function syncOfflineData(): Promise<void> {
                 await writeLocalVisits([]);
             }
         }
+
+        // 4. Sync custom known places
+        // Upload any custom places created while offline or anonymous and bind them to the user.
+        await syncOfflineKnownPlaces();
     } catch (e) {
         console.error('Offline sync execution failed:', e);
     } finally {
