@@ -1,3 +1,11 @@
+// TODO: FUTURE PLACES & GEOFENCING CORE ENHANCEMENTS:
+// 1. Custom Places Offline Sync: Implement an automated sync manager to upload locally cached offline places
+//    stored in AsyncStorage to Supabase once database connection is restored.
+// 2. Reverse Geocoding Integration: Use Location.reverseGeocodeAsync() to fetch street names and city info
+//    automatically based on latitude/longitude inputs to suggest friendly names for places.
+// 3. Overlap Detection: Prevent the creation of overlapping geofences by checking distance metrics
+//    between a new centroid and existing registered places, warning users of redundant triggers.
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { LocationCategory } from './locationIntelligence';
