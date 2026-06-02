@@ -2,10 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { AppState } from 'react-native';
 
+import { KalmanFilter, shouldDiscardPing } from '../utils/locationFilter';
 import { getEffectiveKnownPlaces, syncOfflineKnownPlaces } from './knownPlaces';
 import type { LocationCategory, LocationVisit } from './locationIntelligence';
 import { supabase } from './supabase';
-import { KalmanFilter, shouldDiscardPing } from '../utils/locationFilter';
 
 /**
  * Interface representing a single GPS telemetry coordinate point logged in a track.
@@ -20,7 +20,6 @@ export interface TrackedLocationPing {
     category: LocationCategory;
 }
 
-/** Row format mapped inside the Supabase database. */
 type SupabasePingRow = {
     id: string;
     user_id: string;
