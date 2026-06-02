@@ -1,3 +1,11 @@
+// TODO: FUTURE TRACK DATABASE & COMPRESSION ENHANCEMENTS:
+// 1. Offline Tracks Cache & Sync: Implement offline fallback caching (e.g. AsyncStorage `gps_tracks.offline_tracks`)
+//    for custom tracks added via addTrack when offline, allowing them to be synced once online.
+// 2. Route Compression (Polyline Encoding): Store geographic routes as compressed polylines
+//    rather than flat coordinate arrays to minimize Supabase storage size and improve network response times.
+// 3. Track Tagging & Metadata: Expand the Track interface to support custom user descriptions, tags (e.g., #cardio, #commute),
+//    and weather conditions parameters.
+
 import { supabase } from './supabase';
 
 
