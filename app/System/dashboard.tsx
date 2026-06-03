@@ -67,7 +67,6 @@ export default function Dashboard() {
         }
     }, [isTracking]);
 
-    // Compute live dashboard metrics based on real database tracks
     const totalDistance = tracks.reduce((sum, t) => sum + parseFloat(t.distance || '0'), 0);
     const totalMinutes = tracks.reduce((sum, t) => sum + (t.duration_minutes || 0), 0);
     const activeHours = (totalMinutes / 60).toFixed(1);
