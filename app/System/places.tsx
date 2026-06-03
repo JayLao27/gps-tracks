@@ -1,12 +1,5 @@
-// TODO: FUTURE PLACES & GEOFENCE ENHANCEMENTS:
-// 1. Visual Geofence Radius Map: Integrate interactive maps where users can drag a pin and resize a radius circle
-//    rather than inputting meters numerically.
-// 2. Custom Location Categories: Allow adding custom labels, custom colors, and Ionicons names,
-//    removing the strict restriction of hardcoded types (study, work, gym, etc.).
-// 3. Contact/Calendar Automation: Import addresses from the user's contacts or calendar events to automatically
-//    register geofence areas.
-
 import { useKnownPlaces } from '@/hooks/useKnownPlaces';
+import { useTheme } from '@/hooks/useTheme';
 import { suggestPlacesFromPings, type LocationCategory, type SuggestedPlace } from '@/services/locationIntelligence';
 import { getTrackedPings } from '@/services/locationTracking';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +14,6 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
 
 const categories: LocationCategory[] = [
     'home',
@@ -109,7 +101,6 @@ export default function Places() {
             setSuggestionsLoading(true);
             try {
                 const livePings = await getTrackedPings(21);
-                // Combine live and mock pings for demo richness
                 const allPings = livePings.length > 0 ? livePings : MOCK_RAW_PINGS;
                 const results = suggestPlacesFromPings(allPings, places, 3);
                 setSuggestions(results);
