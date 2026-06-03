@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
-import { type IntelligenceReport } from '@/services/locationIntelligence';
 import { type CoachPersona } from '@/hooks/useIntelligenceReport';
+import { type IntelligenceReport } from '@/services/locationIntelligence';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface ChatMessage {
     id: string;
@@ -266,9 +266,6 @@ Instructions:
                     parts: [{ text: m.text }],
                 }));
 
-            // TODO: IMPROVEMENT: Token streaming
-            // Integrate streamGenerateContent API to stream chunks back to the UI in real-time,
-            // parsing chunks as they arrive for a smoother, ChatGPT-like messaging experience.
             const response = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`,
                 {
