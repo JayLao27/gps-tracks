@@ -595,13 +595,6 @@ export function generateLocalAiInsight(
     };
 }
 
-// TODO: IMPROVEMENT: Extensible AI Personalities & Streaming
-// 1. Prompt Personalization: Enable users to select their AI Habit Coach's persona/attitude
-//     (e.g., tough love, encouraging, data-driven, direct).
-// 2. Token Streaming: Integrate Server-Sent Events (SSE) or WebSockets to stream the Gemini
-//     content generation response rather than waiting for the entire block.
-// 3. Offload Computation: Migrate analytical calculations (DBSCAN, routine prediction, productivity scoring)
-//     to a Web Worker / background thread, or pre-calculate them server-side via Supabase Edge Functions.
 /**
  * Parses incomplete/streaming JSON buffers progressively.
  * Utilizes regular expressions to extract partial properties from the active JSON stream
