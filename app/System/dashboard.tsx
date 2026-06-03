@@ -1,14 +1,14 @@
 import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
 import { useLocationTracker } from '@/hooks/useLocationTracker';
+import { useTheme } from '@/hooks/useTheme';
+import { useTracks } from '@/hooks/useTracks';
 import { getCurrentUser } from '@/services/authService';
 import { type User } from '@/services/database';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
-import { useRouter } from 'expo-router';
-import { useTracks } from '@/hooks/useTracks';
 
 function getGreeting(): string {
     const h = new Date().getHours();
@@ -33,15 +33,6 @@ function formatStationaryTime(seconds: number): string {
     return `${s}s`;
 }
 
-// TODO: FUTURE UI/UX ENHANCEMENTS:
-// 1. Live Map Preview: Integrate expo-maps or react-native-maps to draw a real-time breadcrumb path
-//    of the active tracking session inside the "Recording Live GPS" card.
-// 2. Dynamic Tagging / Notes: Allow users to append active labels (e.g. "commute", "running errand", "hiking")
-//    directly during a live session instead of auto-assigning activity type afterwards.
-// 3. Power-Draining Warning: Display a visual indicator warning when GPS tracking has been active
-//    for over 4 hours to help users prevent unintentional battery drain.
-// 4. Pull-to-Refresh: Implement a RefreshControl on the ScrollView to trigger refresh() and refreshTracks()
-//    on user drag.
 export default function Dashboard() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
