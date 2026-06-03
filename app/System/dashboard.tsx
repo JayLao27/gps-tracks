@@ -61,7 +61,6 @@ export default function Dashboard() {
         refreshTracks();
     }, []);
 
-    // Refresh dashboard stats whenever tracking session ends
     useEffect(() => {
         if (!isTracking) {
             refreshTracks();
