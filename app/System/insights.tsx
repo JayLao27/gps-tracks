@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useIntelligenceChat } from '@/hooks/useIntelligenceChat';
 import { useIntelligenceReport, type CoachPersona } from '@/hooks/useIntelligenceReport';
+import { useTheme } from '@/hooks/useTheme';
+import { type LocationCategory } from '@/services/locationIntelligence';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform, Modal } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
-import { useIntelligenceChat } from '@/hooks/useIntelligenceChat';
-import { type LocationCategory } from '@/services/locationIntelligence';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 function getPersonaColor(persona: CoachPersona): string {
     switch (persona) {
@@ -646,11 +646,6 @@ export default function Insights() {
                         backgroundColor: isDark ? '#090d16' : '#f8fafc',
                     }}
                 >
-                    {/* TODO: UI/UX CHAT IMPROVEMENTS:
-                        1. PERSONA-SPECIFIC THEMES: Apply distinct background/accent gradients based on the persona (e.g. rose red tones for Tough Coach, warm gold for Encouraging).
-                        2. TYPING BUBBLE ANIMATION: Replace the static ActivityIndicator with a custom animated triple-dot bounce component using React Native Animated.
-                        3. SPEECH-TO-TEXT: Add a microphone button in the input bar to support voice input.
-                    */}
                     <KeyboardAvoidingView 
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
                         style={{ flex: 1 }}
