@@ -37,6 +37,8 @@ export interface ProductivitySummary {
     nonProductivePercent: number;
     studyDropPercent: number;
     bestWindow: string;
+    productiveByHour: number[];
+    categoryMinutes: Record<LocationCategory, number>;
 }
 
 export interface GoalStatus {
@@ -245,9 +247,21 @@ function calculateProductivity(visits: LocationVisit[]): ProductivitySummary {
     let productiveMinutes = 0;
     let nonProductiveMinutes = 0;
     const productiveByHour: number[] = Array.from({ length: 24 }, () => 0);
+    const categoryMinutes: Record<LocationCategory, number> = {
+        study: 0,
+        work: 0,
+        gym: 0,
+        social: 0,
+        home: 0,
+        other: 0,
+    };
 
     for (const visit of visits) {
         const minutes = minutesBetween(visit.startTime, visit.endTime);
+
+        if (categoryMinutes[visit.category] !== undefined) {
+            categoryMinutes[visit.category] += minutes;
+        }
 
         if (PRODUCTIVE_CATEGORIES.includes(visit.category)) {
             productiveMinutes += minutes;
@@ -306,6 +320,8 @@ function calculateProductivity(visits: LocationVisit[]): ProductivitySummary {
         nonProductivePercent,
         studyDropPercent,
         bestWindow: formatHourWindow(bestHour),
+        productiveByHour,
+        categoryMinutes,
     };
 }
 

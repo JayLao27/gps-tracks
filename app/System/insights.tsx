@@ -24,6 +24,23 @@ function toHours(minutes: number): string {
     return `${(minutes / 60).toFixed(1)}h`;
 }
 
+function getCategoryStyle(cat: LocationCategory) {
+    switch (cat) {
+        case 'home':
+            return { bg: '#10b981', label: 'Home', icon: 'home-outline' as const };
+        case 'study':
+            return { bg: '#6366f1', label: 'Study', icon: 'book-outline' as const };
+        case 'work':
+            return { bg: '#38bdf8', label: 'Work', icon: 'briefcase-outline' as const };
+        case 'gym':
+            return { bg: '#f43f5e', label: 'Gym', icon: 'barbell-outline' as const };
+        case 'social':
+            return { bg: '#a855f7', label: 'Social', icon: 'people-outline' as const };
+        default:
+            return { bg: '#cbd5e1', label: 'Other', icon: 'pin-outline' as const };
+    }
+}
+
 // TODO: FUTURE ANALYTICAL & AI UI ENHANCEMENTS:
 // 1. Chart Visualizations: Replace the text-based lists and static goal bars with interactive charts
 //    (e.g., react-native-gifted-charts or victory-native) to plot productivity trends over time,
@@ -52,6 +69,12 @@ export default function Insights() {
         removeCustomGoal
     } = useIntelligenceReport();
     const { colors, isDark } = useTheme();
+
+    const categoryMinutes = report.productivity.categoryMinutes || { study: 0, work: 0, gym: 0, social: 0, home: 0, other: 0 };
+    const totalCategoryMinutes = Object.values(categoryMinutes).reduce((sum, m) => sum + m, 0) || 1;
+
+    const productiveByHour = report.productivity.productiveByHour || Array.from({ length: 24 }, () => 0);
+    const maxHourMinutes = Math.max(...productiveByHour, 1);
 
     const [showGoalForm, setShowGoalForm] = useState(false);
     const [goalTitle, setGoalTitle] = useState('');
@@ -286,6 +309,154 @@ export default function Insights() {
                         <View className="flex-row items-center">
                             <View className="h-1.5 w-1.5 rounded-full bg-amber-500 mr-1.5" />
                             <Text className="text-[9px] font-bold uppercase" style={{ color: colors.textSecondary }}>Non-Productive ({report.productivity.nonProductivePercent}%)</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Telemetry Charts Dashboard */}
+                <View className="px-6 pt-6">
+                    <Text className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
+                        Spatial & Temporal Analytics
+                    </Text>
+
+                    {/* Circadian Peak Focus Wave */}
+                    <View 
+                        className="rounded-3xl border p-5 shadow-lg mb-4"
+                        style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+                    >
+                        <View className="flex-row items-center justify-between">
+                            <View>
+                                <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
+                                    Circadian Focus Wave
+                                </Text>
+                                <Text className="mt-0.5 text-sm font-black" style={{ color: colors.textPrimary }}>
+                                    Productivity by Hour
+                                </Text>
+                            </View>
+                            <View className="flex-row items-center bg-emerald-500/10 rounded-full px-2 py-0.5 border border-emerald-500/20">
+                                <Ionicons name="flash-outline" size={10} color="#34d399" />
+                                <Text className="ml-1 text-[8px] font-extrabold uppercase" style={{ color: colors.productivityText }}>
+                                    Adaptive
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View className="flex-row items-end justify-between h-20 px-1 mt-6 mb-2">
+                            {productiveByHour.map((minutes, hour) => {
+                                const heightPercent = (minutes / maxHourMinutes) * 100;
+                                
+                                // Parse best window hours to highlight active focus zones
+                                // e.g. "8 AM to 10 AM" -> matches hours 8 and 9
+                                let isBestWindow = false;
+                                try {
+                                    const windowLabel = report.productivity.bestWindow;
+                                    const match = windowLabel.match(/(\d+)\s*(AM|PM)\s*to\s*(\d+)\s*(AM|PM)/i);
+                                    if (match) {
+                                        let start = parseInt(match[1]);
+                                        const startAmpm = match[2].toUpperCase();
+                                        let end = parseInt(match[3]);
+                                        const endAmpm = match[4].toUpperCase();
+                                        
+                                        if (startAmpm === 'PM' && start < 12) start += 12;
+                                        if (startAmpm === 'AM' && start === 12) start = 0;
+                                        if (endAmpm === 'PM' && end < 12) end += 12;
+                                        if (endAmpm === 'AM' && end === 12) end = 0;
+                                        
+                                        if (start <= end) {
+                                            isBestWindow = hour >= start && hour < end;
+                                        } else {
+                                            isBestWindow = hour >= start || hour < end; // wraps around midnight
+                                        }
+                                    }
+                                } catch {}
+
+                                return (
+                                    <View key={hour} className="flex-1 items-center mx-[1.5px]" style={{ height: '100%' }}>
+                                        <View className="flex-1 w-full justify-end">
+                                            <View 
+                                                style={{ height: `${Math.max(6, heightPercent)}%` }} 
+                                                className={`w-full rounded-t-md ${minutes > 0 ? (isBestWindow ? 'bg-emerald-400 dark:bg-emerald-400 shadow-md shadow-emerald-500/20' : 'bg-slate-400 dark:bg-slate-600') : 'bg-slate-200 dark:bg-slate-800'}`}
+                                            />
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </View>
+
+                        {/* Chart Timeline Labels */}
+                        <View className="flex-row justify-between px-1 mt-2.5">
+                            <Text className="text-[8px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>12 AM</Text>
+                            <Text className="text-[8px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>6 AM</Text>
+                            <Text className="text-[8px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>12 PM</Text>
+                            <Text className="text-[8px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>6 PM</Text>
+                            <Text className="text-[8px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>11 PM</Text>
+                        </View>
+                    </View>
+
+                    {/* Place Category Allocation Breakdown */}
+                    <View 
+                        className="rounded-3xl border p-5 shadow-lg mb-2"
+                        style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+                    >
+                        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
+                            Allocation Density
+                        </Text>
+                        <Text className="mt-0.5 text-sm font-black" style={{ color: colors.textPrimary }}>
+                            Time Spent by Place
+                        </Text>
+
+                        {/* Stacked Segment Bar */}
+                        <View 
+                            className="h-3 w-full flex-row rounded-full overflow-hidden mt-4 mb-2 p-0.5 border"
+                            style={{ backgroundColor: isDark ? '#020617' : 'rgba(15,23,42,0.06)', borderColor: colors.cardBorder }}
+                        >
+                            {(['home', 'study', 'work', 'gym', 'social', 'other'] as LocationCategory[]).map((cat) => {
+                                const mins = categoryMinutes[cat] || 0;
+                                const pct = (mins / totalCategoryMinutes) * 100;
+                                if (pct <= 0) return null;
+                                const style = getCategoryStyle(cat);
+                                return (
+                                    <View 
+                                        key={cat} 
+                                        style={{ width: `${pct}%`, backgroundColor: style.bg }} 
+                                        className="h-full rounded-sm" 
+                                    />
+                                );
+                            })}
+                        </View>
+
+                        {/* Detailed Grid */}
+                        <View className="flex-row flex-wrap justify-between mt-4 gap-y-2.5">
+                            {(['home', 'study', 'work', 'gym', 'social', 'other'] as LocationCategory[]).map((cat) => {
+                                const mins = categoryMinutes[cat] || 0;
+                                const pct = (mins / totalCategoryMinutes) * 100;
+                                const style = getCategoryStyle(cat);
+                                const hours = (mins / 60).toFixed(1);
+                                
+                                return (
+                                    <View 
+                                        key={cat} 
+                                        className="flex-row items-center p-2 rounded-2xl border" 
+                                        style={{ 
+                                            backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(15,23,42,0.02)', 
+                                            borderColor: colors.cardBorder, 
+                                            width: '48.5%' 
+                                        }}
+                                    >
+                                        <View className="h-6 w-6 items-center justify-center rounded-xl mr-2.5" style={{ backgroundColor: style.bg + '15' }}>
+                                            <Ionicons name={style.icon as any} size={11} color={style.bg} />
+                                        </View>
+                                        <View className="flex-1">
+                                            <Text className="text-[10px] font-bold" style={{ color: colors.textPrimary }}>
+                                                {style.label}
+                                            </Text>
+                                            <Text className="text-[8px] font-semibold mt-0.5" style={{ color: colors.textTertiary }}>
+                                                {hours} hrs ({pct.toFixed(0)}%)
+                                            </Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
                         </View>
                     </View>
                 </View>
