@@ -9,8 +9,9 @@ import { useTracks } from '@/hooks/useTracks';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Modal, Alert } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
+import { type Track, deleteTrack } from '@/services/database';
 
 const filters = ['All', 'This Week', 'This Month'];
 const typeFilters = ['All Types', 'Walks', 'Runs', 'Rides'];
@@ -21,6 +22,38 @@ export default function Activity() {
     const [searchQuery, setSearchQuery] = useState('');
     const { tracks, loading, error, refresh } = useTracks();
     const { colors, isDark } = useTheme();
+    const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+
+    const handleDeleteTrack = async (trackId: string) => {
+        Alert.alert(
+            "Delete Track",
+            "Are you sure you want to permanently delete this track?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Delete", 
+                    style: "destructive",
+                    onPress: async () => {
+                        setDeleteLoading(true);
+                        try {
+                            const success = await deleteTrack(trackId);
+                            if (success) {
+                                setSelectedTrack(null);
+                                refresh();
+                            } else {
+                                Alert.alert("Error", "Failed to delete the track.");
+                            }
+                        } catch {
+                            Alert.alert("Error", "An error occurred while deleting.");
+                        } finally {
+                            setDeleteLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     // Dynamically filter tracks based on period selection, activity type, and text search query
     const filteredTracks = tracks.filter((track) => {
@@ -229,6 +262,7 @@ export default function Activity() {
                             return (
                                 <Pressable
                                     key={track.id}
+                                    onPress={() => setSelectedTrack(track)}
                                     style={{
                                         backgroundColor: colors.cardBg,
                                         borderColor: trackColor + '40',
@@ -308,6 +342,219 @@ export default function Activity() {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Track Detail Modal */}
+            <Modal
+                visible={selectedTrack !== null}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setSelectedTrack(null)}
+            >
+                <View className="flex-1 justify-end bg-black/60">
+                    <View 
+                        className="rounded-t-3xl border-t p-6 pb-10"
+                        style={{ 
+                            backgroundColor: isDark ? '#0f172a' : '#ffffff', 
+                            borderColor: colors.cardBorder,
+                            maxHeight: '85%'
+                        }}
+                    >
+                        {selectedTrack && (() => {
+                            const trackColor = selectedTrack.color || '#34d399';
+                            
+                            // Estimate steps
+                            const isFoot = (selectedTrack.icon || '').includes('footsteps') || (selectedTrack.icon || '').includes('walk') || selectedTrack.name.toLowerCase().includes('walk') || selectedTrack.name.toLowerCase().includes('run');
+                            const estimatedStepsCount = isFoot ? Math.round(parseFloat(selectedTrack.distance || '0') * 1320) : 0;
+                            
+                            // Estimate Calories burned
+                            let caloriesPerMin = 6;
+                            if ((selectedTrack.icon || '').includes('walk') || (selectedTrack.icon || '').includes('footsteps')) caloriesPerMin = 5;
+                            else if ((selectedTrack.icon || '').includes('run')) caloriesPerMin = 11;
+                            else if ((selectedTrack.icon || '').includes('bicycle')) caloriesPerMin = 8;
+                            const estimatedCalories = selectedTrack.duration_minutes * caloriesPerMin;
+
+                            return (
+                                <ScrollView showsVerticalScrollIndicator={false}>
+                                    {/* Modal Handle */}
+                                    <View className="w-12 h-1.5 rounded-full bg-slate-500/30 self-center mb-6" />
+
+                                    {/* Modal Header */}
+                                    <View className="flex-row items-center justify-between">
+                                        <View className="flex-row items-center flex-1 mr-4">
+                                            <View 
+                                                className="h-12 w-12 items-center justify-center rounded-2xl border mr-4"
+                                                style={{ 
+                                                    backgroundColor: trackColor + '15',
+                                                    borderColor: trackColor + '30'
+                                                }}
+                                            >
+                                                <Ionicons name={selectedTrack.icon as any} size={24} color={trackColor} />
+                                            </View>
+                                            <View className="flex-1">
+                                                <Text className="text-lg font-black tracking-tight" style={{ color: colors.textPrimary }}>
+                                                    {selectedTrack.name}
+                                                </Text>
+                                                <Text className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: colors.textTertiary }}>
+                                                    {new Date(selectedTrack.date).toLocaleDateString('en-US', {
+                                                        weekday: 'long',
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <Pressable 
+                                            onPress={() => setSelectedTrack(null)}
+                                            className="p-2 rounded-xl bg-slate-500/10 active:bg-slate-500/20"
+                                        >
+                                            <Ionicons name="close" size={20} color={colors.textSecondary} />
+                                        </Pressable>
+                                    </View>
+
+                                    {/* Simulated Route Visualizer / abstract mini map path */}
+                                    <View 
+                                        className="h-44 w-full rounded-2xl border my-6 items-center justify-center overflow-hidden"
+                                        style={{ backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(15,23,42,0.02)', borderColor: colors.cardBorder }}
+                                    >
+                                        {/* Background Grid Lines for Technical styling */}
+                                        <View className="absolute inset-0 opacity-10 flex-col justify-between p-4">
+                                            <View className="h-px w-full bg-slate-500" />
+                                            <View className="h-px w-full bg-slate-500" />
+                                            <View className="h-px w-full bg-slate-500" />
+                                            <View className="h-px w-full bg-slate-500" />
+                                        </View>
+                                        <View className="absolute inset-0 opacity-10 flex-row justify-between p-4">
+                                            <View className="w-px h-full bg-slate-500" />
+                                            <View className="w-px h-full bg-slate-500" />
+                                            <View className="w-px h-full bg-slate-500" />
+                                            <View className="w-px h-full bg-slate-500" />
+                                        </View>
+
+                                        {/* Abstract route path using styled dots/lines */}
+                                        <View className="relative w-4/5 h-24 justify-center items-center">
+                                            {/* Stylized route shape */}
+                                            <View 
+                                                className="absolute border-dashed border-2 rounded-full opacity-30" 
+                                                style={{ width: '80%', height: '80%', borderColor: trackColor, transform: [{ rotate: '45deg' }] }} 
+                                            />
+                                            {/* Start and end node points */}
+                                            <View 
+                                                className="absolute h-3 w-3 rounded-full border bg-emerald-400 items-center justify-center" 
+                                                style={{ top: '10%', left: '10%', borderColor: '#ffffff' }}
+                                            >
+                                                <View className="h-1.5 w-1.5 bg-white rounded-full" />
+                                            </View>
+                                            <View 
+                                                className="absolute h-3 w-3 rounded-full border bg-rose-400 items-center justify-center" 
+                                                style={{ bottom: '10%', right: '15%', borderColor: '#ffffff' }}
+                                            >
+                                                <View className="h-1.5 w-1.5 bg-white rounded-full" />
+                                            </View>
+                                            
+                                            {/* Pulsing indicator along the track path */}
+                                            <View 
+                                                className="absolute h-5 w-5 rounded-full items-center justify-center" 
+                                                style={{ top: '48%', left: '60%', backgroundColor: trackColor + '20' }}
+                                            >
+                                                <View className="h-2 w-2 rounded-full" style={{ backgroundColor: trackColor }} />
+                                            </View>
+
+                                            <Text className="absolute bottom-1 left-2 text-[8px] font-bold uppercase tracking-widest text-emerald-400">START</Text>
+                                            <Text className="absolute top-1 right-2 text-[8px] font-bold uppercase tracking-widest text-rose-400">FINISH</Text>
+                                        </View>
+
+                                        {/* Overlay Telemetry Metadata */}
+                                        <View className="absolute bottom-3 right-3 bg-black/60 rounded-lg px-2 py-0.5 border border-white/10">
+                                            <Text className="text-[8px] font-extrabold uppercase text-white tracking-widest">
+                                                Telemetry Active
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Stats grid */}
+                                    <View className="flex-row flex-wrap justify-between gap-y-3">
+                                        {/* Distance */}
+                                        <View className="p-4 rounded-2xl border" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder, width: '48.5%' }}>
+                                            <View className="flex-row items-center mb-1">
+                                                <Ionicons name="resize-outline" size={14} color={colors.textTertiary} />
+                                                <Text className="ml-1.5 text-[9px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Distance</Text>
+                                            </View>
+                                            <Text className="text-lg font-black" style={{ color: colors.textPrimary }}>{selectedTrack.distance} km</Text>
+                                        </View>
+
+                                        {/* Duration */}
+                                        <View className="p-4 rounded-2xl border" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder, width: '48.5%' }}>
+                                            <View className="flex-row items-center mb-1">
+                                                <Ionicons name="time-outline" size={14} color={colors.textTertiary} />
+                                                <Text className="ml-1.5 text-[9px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Duration</Text>
+                                            </View>
+                                            <Text className="text-lg font-black" style={{ color: colors.textPrimary }}>{selectedTrack.duration_minutes} min</Text>
+                                        </View>
+
+                                        {/* Pace */}
+                                        <View className="p-4 rounded-2xl border" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder, width: '48.5%' }}>
+                                            <View className="flex-row items-center mb-1">
+                                                <Ionicons name="speedometer-outline" size={14} color={colors.textTertiary} />
+                                                <Text className="ml-1.5 text-[9px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Average Pace</Text>
+                                            </View>
+                                            <Text className="text-base font-black" style={{ color: colors.textPrimary }}>{selectedTrack.pace}</Text>
+                                        </View>
+
+                                        {/* Energy Burned */}
+                                        <View className="p-4 rounded-2xl border" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder, width: '48.5%' }}>
+                                            <View className="flex-row items-center mb-1">
+                                                <Ionicons name="flame-outline" size={14} color={colors.textTertiary} />
+                                                <Text className="ml-1.5 text-[9px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Energy Burned</Text>
+                                            </View>
+                                            <Text className="text-lg font-black text-rose-400" style={{ color: isDark ? '#f87171' : '#e11d48' }}>{estimatedCalories} kcal</Text>
+                                        </View>
+                                        
+                                        {/* Estimated Steps (for walks/runs) */}
+                                        {estimatedStepsCount > 0 && (
+                                            <View className="p-4 rounded-2xl border w-full" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
+                                                <View className="flex-row items-center justify-between mb-1">
+                                                    <View className="flex-row items-center">
+                                                        <Ionicons name="footsteps-outline" size={14} color={colors.textTertiary} />
+                                                        <Text className="ml-1.5 text-[9px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Steps Count</Text>
+                                                    </View>
+                                                    <Text className="text-[9px] font-bold uppercase text-emerald-400" style={{ color: colors.productivityText }}>Pedometer Est.</Text>
+                                                </View>
+                                                <Text className="text-lg font-black" style={{ color: colors.textPrimary }}>{estimatedStepsCount.toLocaleString()} steps</Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Action Buttons */}
+                                    <View className="flex-row gap-3 mt-6">
+                                        <Pressable
+                                            onPress={() => setSelectedTrack(null)}
+                                            className="flex-1 items-center justify-center rounded-2xl border py-4 active:bg-slate-900/40"
+                                            style={{ backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(15,23,42,0.03)', borderColor: colors.cardBorder }}
+                                        >
+                                            <Text className="text-xs font-black uppercase tracking-wider" style={{ color: colors.textSecondary }}>
+                                                Close Details
+                                            </Text>
+                                        </Pressable>
+
+                                        <Pressable
+                                            onPress={() => handleDeleteTrack(selectedTrack.id)}
+                                            disabled={deleteLoading}
+                                            className="flex-1 flex-row items-center justify-center rounded-2xl bg-rose-500 py-4 active:bg-rose-600 shadow-md shadow-rose-950/20"
+                                        >
+                                            <Ionicons name="trash-outline" size={14} color="#ffffff" className="mr-1" />
+                                            <Text className="ml-1.5 text-xs font-black uppercase tracking-wider text-white">
+                                                {deleteLoading ? 'Deleting...' : 'Delete Track'}
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                </ScrollView>
+                            );
+                        })()}
+                    </View>
+                </View>
+            </Modal>
         </LinearGradient>
     );
 }
