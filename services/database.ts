@@ -1,12 +1,24 @@
-// TODO: FUTURE TRACK DATABASE & COMPRESSION ENHANCEMENTS:
-// 1. Offline Tracks Cache & Sync: Implement offline fallback caching (e.g. AsyncStorage `gps_tracks.offline_tracks`)
-//    for custom tracks added via addTrack when offline, allowing them to be synced once online.
-// 2. Route Compression (Polyline Encoding): Store geographic routes as compressed polylines
-//    rather than flat coordinate arrays to minimize Supabase storage size and improve network response times.
-// 3. Track Tagging & Metadata: Expand the Track interface to support custom user descriptions, tags (e.g., #cardio, #commute),
-//    and weather conditions parameters.
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+
+const LOCAL_OFFLINE_TRACKS_KEY = 'gps_tracks.offline_tracks';
+
+export async function readLocalOfflineTracks(): Promise<Track[]> {
+    try {
+        const json = await AsyncStorage.getItem(LOCAL_OFFLINE_TRACKS_KEY);
+        return json ? (JSON.parse(json) as Track[]) : [];
+    } catch {
+        return [];
+    }
+}
+
+export async function writeLocalOfflineTracks(tracks: Track[]): Promise<void> {
+    try {
+        await AsyncStorage.setItem(LOCAL_OFFLINE_TRACKS_KEY, JSON.stringify(tracks));
+    } catch (err) {
+        console.error('Failed to write offline tracks:', err);
+    }
+}
 
 
 export interface User {
@@ -60,11 +72,13 @@ export async function getAuthUser(): Promise<User | null> {
 }
 
 export async function getUserTracks(): Promise<Track[]> {
+    const localOffline = await readLocalOfflineTracks();
+
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return [];
+    if (!user) return localOffline;
 
     const { data, error } = await supabase
         .from('tracks')
@@ -73,11 +87,13 @@ export async function getUserTracks(): Promise<Track[]> {
         .order('date', { ascending: false });
 
     if (error) {
-        console.error('Error fetching tracks:', error);
-        return [];
+        console.error('Error fetching tracks, merging local offline:', error);
+        return localOffline;
     }
 
-    return data || [];
+    const remoteTracks = data || [];
+    const merged = [...localOffline, ...remoteTracks];
+    return merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function addTrack(track: Omit<Track, 'id' | 'user_id' | 'created_at'>): Promise<Track | null> {
@@ -85,29 +101,60 @@ export async function addTrack(track: Omit<Track, 'id' | 'user_id' | 'created_at
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return null;
+    const offlineTrack: Track = {
+        id: 'offline-' + Math.random().toString(36).substring(2, 11),
+        user_id: user?.id ?? 'anon',
+        ...track,
+        created_at: new Date().toISOString(),
+    };
 
-    const { data, error } = await supabase
-        .from('tracks')
-        .insert([
-            {
-                id: Math.random().toString(36).substring(2, 11),
-                user_id: user.id,
-                ...track,
-            },
-        ])
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error adding track:', error);
-        return null;
+    if (!user) {
+        const existing = await readLocalOfflineTracks();
+        await writeLocalOfflineTracks([offlineTrack, ...existing]);
+        return offlineTrack;
     }
 
-    return data;
+    try {
+        const { data, error } = await supabase
+            .from('tracks')
+            .insert([
+                {
+                    id: Math.random().toString(36).substring(2, 11),
+                    user_id: user.id,
+                    ...track,
+                },
+            ])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Supabase track insert failed, queuing offline:', error);
+            const existing = await readLocalOfflineTracks();
+            await writeLocalOfflineTracks([offlineTrack, ...existing]);
+            return offlineTrack;
+        }
+
+        return data;
+    } catch (err) {
+        console.error('Network error when adding track, queuing offline:', err);
+        const existing = await readLocalOfflineTracks();
+        await writeLocalOfflineTracks([offlineTrack, ...existing]);
+        return offlineTrack;
+    }
 }
 
 export async function deleteTrack(trackId: string): Promise<boolean> {
+    if (trackId.startsWith('offline-')) {
+        try {
+            const existing = await readLocalOfflineTracks();
+            const next = existing.filter((t) => t.id !== trackId);
+            await writeLocalOfflineTracks(next);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     const { error } = await supabase
         .from('tracks')
         .delete()

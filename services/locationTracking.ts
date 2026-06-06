@@ -6,6 +6,7 @@ import { KalmanFilter, shouldDiscardPing } from '../utils/locationFilter';
 import { getEffectiveKnownPlaces, syncOfflineKnownPlaces } from './knownPlaces';
 import type { LocationCategory, LocationVisit } from './locationIntelligence';
 import { supabase } from './supabase';
+import { readLocalOfflineTracks, writeLocalOfflineTracks } from './database';
 
 
 export interface TrackedLocationPing {
@@ -172,6 +173,25 @@ export async function syncOfflineData(): Promise<void> {
             const { error } = await supabase.from('visits').insert(rowsToInsert);
             if (!error) {
                 await writeLocalVisits([]);
+            }
+        }
+
+        const offlineTracks = await readLocalOfflineTracks();
+        if (offlineTracks.length > 0) {
+            const rowsToInsert = offlineTracks.map((t) => ({
+                id: Math.random().toString(36).substring(2, 11),
+                user_id: userId,
+                name: t.name,
+                date: t.date,
+                distance: t.distance,
+                duration_minutes: t.duration_minutes,
+                pace: t.pace,
+                icon: t.icon,
+                color: t.color,
+            }));
+            const { error } = await supabase.from('tracks').insert(rowsToInsert);
+            if (!error) {
+                await writeLocalOfflineTracks([]);
             }
         }
 
