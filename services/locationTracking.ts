@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: services/locationTracking.ts
+ * LAYER: Core Telemetry / Tracking Layer
+ * DESCRIPTION: Coordinates foreground location tracking, Kalman filtering for 
+ *              GPS noise reduction, geofenced visits logging, and offline auto-sync.
+ * ============================================================================
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { AppState } from 'react-native';

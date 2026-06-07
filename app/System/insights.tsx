@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: app/System/insights.tsx
+ * LAYER: Presentation / Feature View Layer
+ * DESCRIPTION: Renders the telemetry analytics dashboard, including circadian
+ *              productivity histograms, spatial density allocations, and AI chat.
+ * ============================================================================
+ */
+
 import { useIntelligenceChat } from '@/hooks/useIntelligenceChat';
 import { useIntelligenceReport, type CoachPersona } from '@/hooks/useIntelligenceReport';
 import { useTheme } from '@/hooks/useTheme';

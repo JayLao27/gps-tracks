@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: utils/secureStorage.ts
+ * LAYER: Hardware / Security Utility Layer
+ * DESCRIPTION: Provides cross-platform secure credentials storage (Expo SecureStore
+ *              keychain encryption for iOS/Android, AsyncStorage for Web).
+ * ============================================================================
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';

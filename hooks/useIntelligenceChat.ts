@@ -1,3 +1,11 @@
+/**
+ * ============================================================================
+ * MODULE: hooks/useIntelligenceChat.ts
+ * LAYER: Stateful Hooks Layer
+ * DESCRIPTION: Coordinates message arrays and dialogs with the Gemini AI Coach.
+ * ============================================================================
+ */
+
 import { type CoachPersona } from '@/hooks/useIntelligenceReport';
 import { type IntelligenceReport } from '@/services/locationIntelligence';
 import AsyncStorage from '@react-native-async-storage/async-storage';

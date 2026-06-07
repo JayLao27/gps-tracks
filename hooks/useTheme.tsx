@@ -1,3 +1,11 @@
+/**
+ * ============================================================================
+ * MODULE: hooks/useTheme.tsx
+ * LAYER: Presentation / Core hooks Layer
+ * DESCRIPTION: Provides theme provider context and colors mapping.
+ * ============================================================================
+ */
+
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

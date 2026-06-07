@@ -1,3 +1,11 @@
+/**
+ * ============================================================================
+ * MODULE: services/supabase.ts
+ * LAYER: Core Infrastructure / Client Init Layer
+ * DESCRIPTION: Initializes the Supabase client mapping connection parameters.
+ * ============================================================================
+ */
+
 import { createClient } from '@supabase/supabase-js';
 import 'react-native-url-polyfill/auto';
 import { getSecureItem, setSecureItem, removeSecureItem } from '../utils/secureStorage';

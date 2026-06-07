@@ -1,6 +1,9 @@
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * ============================================================================
+ * MODULE: hooks/use-theme-color.ts
+ * LAYER: Presentation / Core hooks Layer
+ * DESCRIPTION: Selects active colors from context based on light/dark modes.
+ * ============================================================================
  */
 
 import { Colors } from '@/constants/theme';

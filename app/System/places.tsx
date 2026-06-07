@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: app/System/places.tsx
+ * LAYER: Presentation / Feature View Layer
+ * DESCRIPTION: Provides the interface to manage geofenced places and apply
+ *              DBSCAN spatial clustering suggestions.
+ * ============================================================================
+ */
+
 import { useKnownPlaces } from '@/hooks/useKnownPlaces';
 import { useTheme } from '@/hooks/useTheme';
 import { suggestPlacesFromPings, type LocationCategory, type SuggestedPlace } from '@/services/locationIntelligence';

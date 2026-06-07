@@ -1,4 +1,13 @@
 /**
+ * ============================================================================
+ * MODULE: utils/locationFilter.ts
+ * LAYER: Hardware / Filtering Utility Layer
+ * DESCRIPTION: Provides Kalman Filter implementations and speed threshold checks
+ *              to filter out noisy GPS location coordinates.
+ * ============================================================================
+ */
+
+/**
  * Calculates the great-circle distance between two geographic coordinates in meters.
  * Uses the Haversine formula to account for Earth's spherical shape.
  * 

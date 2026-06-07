@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: app/System/_layout.tsx
+ * LAYER: Presentation / Navigation Layer
+ * DESCRIPTION: Configures the main application tab navigation and wraps screens
+ *              in the global ThemeProvider context.
+ * ============================================================================
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { ThemeProvider, useTheme } from '@/hooks/useTheme';

@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: services/backgroundLocation.ts
+ * LAYER: Background Telemetry Layer
+ * DESCRIPTION: Handles battery-efficient, adaptive background location updates
+ *              via Expo TaskManager. Combines Kalman filtering and geofencing.
+ * ============================================================================
+ */
+
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';

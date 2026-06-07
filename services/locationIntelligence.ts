@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: services/locationIntelligence.ts
+ * LAYER: Domain Intelligence / Analysis Layer
+ * DESCRIPTION: Provides behavioral analytics summaries, spatial productivity scores,
+ *              circadian active trends, anomalies, and AI coach helpers.
+ * ============================================================================
+ */
+
 export type LocationCategory =
     | 'study'
     | 'work'

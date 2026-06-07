@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: app/Authentication/login.tsx
+ * LAYER: Presentation / Authentication View Layer
+ * DESCRIPTION: Provides the user login interface, connecting Google SSO and
+ *              standard local email credentials logic.
+ * ============================================================================
+ */
+
 import { useGoogleAuth } from '@/hooks/Auth/useGoogleAuth';
 import { useLogin } from '@/hooks/Auth/useLogin';
 import { Ionicons } from '@expo/vector-icons';

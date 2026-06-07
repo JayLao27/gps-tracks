@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: hooks/useIntelligenceReport.ts
+ * LAYER: Stateful Hooks Layer
+ * DESCRIPTION: Orchestrates telemetry metrics compilation, caching, and Gemini API
+ *              feedback streams.
+ * ============================================================================
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

@@ -1,3 +1,11 @@
+/**
+ * ============================================================================
+ * MODULE: hooks/useTracks.ts
+ * LAYER: Stateful Hooks Layer
+ * DESCRIPTION: Coordinates loading and refreshing of tracked GPS segments.
+ * ============================================================================
+ */
+
 import type { Track } from '@/services/database';
 import { getUserTracks } from '@/services/database';
 import { useEffect, useState } from 'react';

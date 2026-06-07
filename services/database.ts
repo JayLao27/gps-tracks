@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: services/database.ts
+ * LAYER: Data Access / Offline Caching Layer
+ * DESCRIPTION: Handles offline AsyncStorage caching, retrieval, and syncing of
+ *              GPS tracks with the Supabase remote database.
+ * ============================================================================
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 

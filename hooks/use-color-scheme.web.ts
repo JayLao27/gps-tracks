@@ -1,3 +1,11 @@
+/**
+ * ============================================================================
+ * MODULE: hooks/use-color-scheme.web.ts
+ * LAYER: Presentation / Core hooks Layer
+ * DESCRIPTION: Client-side hydration wrapper for useColorScheme on Web.
+ * ============================================================================
+ */
+
 import { useEffect, useState } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 

@@ -1,9 +1,11 @@
-// TODO: FUTURE ACTIVITY & ROUTE ENHANCEMENTS:
-// 1. Detailed Map Replay: Support opening a detailed model drawing the full GPS route breadcrumb trail
-//    on an interactive map with zoom and scrub controls.
-// 2. Activity Type Filtering: Extend filter pill capsules to filter by "Walk", "Run", or "Ride"
-//    in addition to time ranges, using appropriate icons.
-// 3. Telemetry Search: Add a text query input to search recorded sessions by location name or notes.
+/**
+ * ============================================================================
+ * MODULE: app/System/activity.tsx
+ * LAYER: Presentation / Feature View Layer
+ * DESCRIPTION: Renders the historical GPS tracking feed, filters activities by
+ *              type and window, and opens interactive detail modals for telemetry.
+ * ============================================================================
+ */
 
 import { useTracks } from '@/hooks/useTracks';
 import { Ionicons } from '@expo/vector-icons';

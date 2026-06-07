@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: app/System/dashboard.tsx
+ * LAYER: Presentation / Feature View Layer
+ * DESCRIPTION: Renders the core user dashboard. Features summary statistics
+ *              and switches to start/stop foreground and background location tracking.
+ * ============================================================================
+ */
+
 import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
 import { useLocationTracker } from '@/hooks/useLocationTracker';
 import { useTheme } from '@/hooks/useTheme';

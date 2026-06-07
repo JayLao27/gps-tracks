@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: app/Authentication/signup.tsx
+ * LAYER: Presentation / Authentication View Layer
+ * DESCRIPTION: Provides the user signup registration interface. Supports standard
+ *              email/name registrations and Google SSO integration.
+ * ============================================================================
+ */
+
 import { useGoogleAuth } from '@/hooks/Auth/useGoogleAuth';
 import { useSignup } from '@/hooks/Auth/useSignup';
 import { Ionicons } from '@expo/vector-icons';

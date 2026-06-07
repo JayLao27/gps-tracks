@@ -1,3 +1,11 @@
+/**
+ * ============================================================================
+ * MODULE: hooks/useKnownPlaces.ts
+ * LAYER: Stateful Hooks Layer
+ * DESCRIPTION: Exposes state and methods for geocoded known place modifications.
+ * ============================================================================
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 
 import {

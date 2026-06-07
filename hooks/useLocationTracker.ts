@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * MODULE: hooks/useLocationTracker.ts
+ * LAYER: Stateful Hooks Layer
+ * DESCRIPTION: Coordinates GPS tracking states, pedometer step data, and
+ *              activity classification mappings.
+ * ============================================================================
+ */
+
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pedometer } from 'expo-sensors';
