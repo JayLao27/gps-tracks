@@ -23,6 +23,29 @@ export function useSignup() {
     const [loading, setLoading] = useState(false);
     const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
 
+    const getPasswordStrength = (): { score: number; label: string; color: string } => {
+        if (!password) return { score: 0, label: 'None', color: '#64748b' };
+        let score = 0;
+        if (password.length >= 8) score += 1;
+        if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+        if (/[0-9]/.test(password)) score += 1;
+        if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+        switch (score) {
+            case 0:
+            case 1:
+                return { score, label: 'Weak', color: '#ef4444' };
+            case 2:
+                return { score, label: 'Fair', color: '#f59e0b' };
+            case 3:
+                return { score, label: 'Good', color: '#3b82f6' };
+            case 4:
+                return { score, label: 'Strong', color: '#10b981' };
+            default:
+                return { score: 0, label: 'None', color: '#64748b' };
+        }
+    };
+
     const handleSignup = async () => {
         if (loading) return;
 
@@ -36,6 +59,17 @@ export function useSignup() {
             return;
         }
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+            setError('Please enter a valid email address.');
+            return;
+        }
+
+        if (password.length < 6) {
+            setError('Password must be at least 6 characters.');
+            return;
+        }
+
         if (password !== confirmPassword) {
             setError('Passwords do not match');
             return;
@@ -45,16 +79,14 @@ export function useSignup() {
         setLoading(true);
         setError('');
 
-        const result = await registerUser(name, email, password);
+        const result = await registerUser(name, email.trim().toLowerCase(), password);
 
         if (result) {
-            // result is an error message
             setError(result);
             setLoading(false);
             return;
         }
 
-        // Success – navigate to dashboard
         setLoading(false);
         router.replace('/System/dashboard' as never);
     };
@@ -71,5 +103,6 @@ export function useSignup() {
         error,
         loading,
         handleSignup,
+        getPasswordStrength,
     };
 }

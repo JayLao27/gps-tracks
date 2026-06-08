@@ -8,15 +8,16 @@
  */
 
 import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
-import { getCurrentUser, logoutUser } from '@/services/authService';
+import { getCurrentUser, logoutUser, updateUserProfile } from '@/services/authService';
 import { type User } from '@/services/database';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Switch, Text, View, Alert, Share, TextInput, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -60,6 +61,13 @@ const settingsSections: SettingsSection[] = [
         ],
     },
     {
+        title: 'Diagnostics & Storage',
+        items: [
+            { icon: 'download-outline', label: 'Export Telemetry Logs', iconColor: '#60a5fa', type: 'link' },
+            { icon: 'trash-outline', label: 'Purge Local Telemetry DB', iconColor: '#f43f5e', type: 'link' },
+        ],
+    },
+    {
         title: 'Support & Legal',
         items: [
             { icon: 'help-circle-outline', label: 'Help & Support', iconColor: '#94a3b8', type: 'link' },
@@ -69,12 +77,20 @@ const settingsSections: SettingsSection[] = [
     },
 ];
 
+
 const SETTINGS_PREFS_KEY = '@gps_tracks:settings_prefs';
 
 export default function Settings() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
     const [showTroubleshooter, setShowTroubleshooter] = useState(false);
+    const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+    const [showHelpModal, setShowHelpModal] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+
     const { report, source } = useIntelligenceReport();
     const { colors, isDark, toggleTheme } = useTheme();
     const [toggleStates, setToggleStates] = useState<Record<string, boolean>>(() => {
@@ -127,13 +143,126 @@ export default function Settings() {
         router.replace('/Authentication/login');
     };
 
+    const handleUpdateProfile = async () => {
+        if (!newName.trim()) {
+            Alert.alert('Validation Error', 'Name cannot be empty.');
+            return;
+        }
+
+        setIsSavingProfile(true);
+        const errorMsg = await updateUserProfile(newName);
+        setIsSavingProfile(false);
+
+        if (errorMsg) {
+            Alert.alert('Update Failed', errorMsg);
+        } else {
+            setUser((prev) => prev ? { ...prev, name: newName.trim() } : null);
+            setShowEditProfileModal(false);
+            Alert.alert('Profile Saved', 'Your display name has been updated successfully.');
+        }
+    };
+
+    const handleExportTelemetry = async () => {
+        Alert.alert(
+            "Export Telemetry Logs",
+            "Choose a format for exporting your raw location logs.",
+            [
+                { text: "JSON Format", onPress: () => performExport("json") },
+                { text: "GPX Format (GPS XML)", onPress: () => performExport("gpx") },
+                { text: "Cancel", style: "cancel" }
+            ]
+        );
+    };
+
+    const performExport = async (format: "json" | "gpx") => {
+        try {
+            const rawPings = await AsyncStorage.getItem('gps_tracks.location_pings');
+            const pings = rawPings ? JSON.parse(rawPings) : [];
+            
+            if (!pings || pings.length === 0) {
+                Alert.alert("No Data", "There are no local telemetry pings found to export.");
+                return;
+            }
+
+            let content = "";
+            if (format === "json") {
+                content = JSON.stringify(pings, null, 2);
+            } else {
+                content = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+                    '<gpx version="1.1" creator="GPS Tracks" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+                    '  <metadata>\n' +
+                    `    <time>${new Date().toISOString()}</time>\n` +
+                    '  </metadata>\n' +
+                    '  <trk>\n' +
+                    '    <name>GPS Tracks Log</name>\n' +
+                    '    <trkseg>\n';
+                for (const p of pings) {
+                    content += `      <trkpt lat="${p.latitude}" lon="${p.longitude}">\n` +
+                        `        <time>${p.timestamp || new Date().toISOString()}</time>\n` +
+                        `        <name>${p.locationName || 'Tracked Spot'}</name>\n` +
+                        `        <desc>Category: ${p.category || 'other'}</desc>\n` +
+                        '      </trkpt>\n';
+                }
+                content += '    </trkseg>\n  </trk>\n</gpx>';
+            }
+
+            await Share.share({
+                message: content,
+                title: `GPS_Telemetry_${new Date().toISOString().split('T')[0]}`
+            });
+        } catch {
+            Alert.alert("Export Error", "An error occurred while compiling your telemetry logs.");
+        }
+    };
+
+    const handlePurgeTelemetry = async () => {
+        Alert.alert(
+            "Purge Telemetry Database",
+            "WARNING: This will permanently delete all local coordinate pings, location history, visit logs, and offline tracks on this device. Remote database records will not be deleted.\n\nAre you sure you want to proceed?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Purge Database",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await AsyncStorage.multiRemove([
+                                'gps_tracks.location_pings',
+                                'gps_tracks.locations',
+                                'gps_tracks.visits',
+                                'gps_tracks.offline_tracks'
+                            ]);
+                            Alert.alert("Purge Complete", "All local databases have been cleared.");
+                        } catch {
+                            Alert.alert("Purge Failed", "Could not clear local databases.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const handleLinkPress = (label: string) => {
         if (label === 'Manage Known Places') {
             router.push('/System/places');
         } else if (label === 'Background GPS Troubleshooter') {
             setShowTroubleshooter(true);
+        } else if (label === 'Edit Profile') {
+            setNewName(user?.name || '');
+            setShowEditProfileModal(true);
+        } else if (label === 'Privacy & Security') {
+            setShowPrivacyModal(true);
+        } else if (label === 'Help & Support') {
+            setShowHelpModal(true);
+        } else if (label === 'Terms of Service') {
+            setShowTermsModal(true);
+        } else if (label === 'Export Telemetry Logs') {
+            handleExportTelemetry();
+        } else if (label === 'Purge Local Telemetry DB') {
+            handlePurgeTelemetry();
         }
     };
+
 
     return (
         <LinearGradient
@@ -172,11 +301,13 @@ export default function Settings() {
                         </Text>
                     </View>
                     <Pressable 
-                        className="rounded-xl border p-2.5 shadow-sm"
+                        onPress={() => handleLinkPress('Edit Profile')}
+                        className="rounded-xl border p-2.5 shadow-sm active:opacity-80"
                         style={{ backgroundColor: colors.isDark ? 'rgba(0,0,0,0.3)' : 'rgba(15,23,42,0.05)', borderColor: colors.cardBorder }}
                     >
                         <Ionicons name="create-outline" size={17} color={colors.textSecondary} />
                     </Pressable>
+
                 </View>
 
                 {/* Settings list sections */}
@@ -414,7 +545,261 @@ export default function Settings() {
                         </View>
                     </View>
                 </Modal>
+
+                {/* ── Edit Profile Modal ── */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={showEditProfileModal}
+                    onRequestClose={() => setShowEditProfileModal(false)}
+                >
+                    <View className="flex-1 items-center justify-center bg-black/60 px-6">
+                        <View 
+                            className="w-full max-w-[380px] overflow-hidden rounded-[32px] border p-6 shadow-2xl"
+                            style={{ backgroundColor: isDark ? '#0f172a' : '#ffffff', borderColor: colors.cardBorder }}
+                        >
+                            <View className="flex-row items-center justify-between border-b pb-4 mb-4" style={{ borderBottomColor: colors.cardBorder }}>
+                                <View className="flex-row items-center">
+                                    <Ionicons name="person-outline" size={20} color="#60a5fa" />
+                                    <Text className="ml-2 text-base font-black tracking-tight" style={{ color: colors.textPrimary }}>
+                                        Edit Profile
+                                    </Text>
+                                </View>
+                                <Pressable onPress={() => setShowEditProfileModal(false)} hitSlop={8}>
+                                    <Ionicons name="close-outline" size={22} color={colors.textSecondary} />
+                                </Pressable>
+                            </View>
+
+                            <View className="mb-4">
+                                <Text className="mb-2 text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textTertiary }}>
+                                    Display Name
+                                </Text>
+                                <TextInput
+                                    className="rounded-2xl border px-4 py-3 text-sm font-semibold"
+                                    style={{ 
+                                        color: colors.textPrimary,
+                                        backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(15,23,42,0.02)',
+                                        borderColor: colors.cardBorder
+                                    }}
+                                    value={newName}
+                                    onChangeText={setNewName}
+                                    placeholder="Enter your name"
+                                    placeholderTextColor="#475569"
+                                    autoCorrect={false}
+                                />
+                            </View>
+
+                            <View className="flex-row gap-3 mt-4">
+                                <Pressable
+                                    onPress={() => setShowEditProfileModal(false)}
+                                    className="flex-1 rounded-2xl py-3 items-center"
+                                    style={{ backgroundColor: isDark ? '#1e293b' : 'rgba(15,23,42,0.06)' }}
+                                >
+                                    <Text className="text-xs font-black uppercase tracking-wider" style={{ color: colors.textPrimary }}>
+                                        Cancel
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    onPress={handleUpdateProfile}
+                                    disabled={isSavingProfile}
+                                    className="flex-1 rounded-2xl py-3 items-center bg-emerald-500 active:opacity-85"
+                                >
+                                    {isSavingProfile ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <Text className="text-xs font-black uppercase tracking-wider text-white">
+                                            Save
+                                        </Text>
+                                    )}
+                                </Pressable>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* ── Privacy & Security Modal ── */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={showPrivacyModal}
+                    onRequestClose={() => setShowPrivacyModal(false)}
+                >
+                    <View className="flex-1 items-center justify-center bg-black/60 px-6">
+                        <View 
+                            className="w-full max-w-[380px] overflow-hidden rounded-[32px] border p-6 shadow-2xl"
+                            style={{ backgroundColor: isDark ? '#0f172a' : '#ffffff', borderColor: colors.cardBorder }}
+                        >
+                            <View className="flex-row items-center justify-between border-b pb-4 mb-4" style={{ borderBottomColor: colors.cardBorder }}>
+                                <View className="flex-row items-center">
+                                    <Ionicons name="shield-checkmark-outline" size={20} color="#34d399" />
+                                    <Text className="ml-2 text-base font-black tracking-tight" style={{ color: colors.textPrimary }}>
+                                        Privacy & Security
+                                    </Text>
+                                </View>
+                                <Pressable onPress={() => setShowPrivacyModal(false)} hitSlop={8}>
+                                    <Ionicons name="close-outline" size={22} color={colors.textSecondary} />
+                                </Pressable>
+                            </View>
+
+                            <ScrollView showsVerticalScrollIndicator={false} className="max-h-[300px]">
+                                <Text className="text-xs leading-relaxed font-semibold mb-3" style={{ color: colors.textSecondary }}>
+                                    Your telemetry data security is our top architectural priority:
+                                </Text>
+
+                                <View className="mb-3">
+                                    <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>Local-First Caching</Text>
+                                    <Text className="text-[10px] leading-relaxed" style={{ color: colors.textTertiary }}>
+                                        Coordinate pings, locations, and visit logs are stored locally using hardware-backed SecureStore keychain encryption.
+                                    </Text>
+                                </View>
+
+                                <View className="mb-3">
+                                    <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>Kalman Denoising</Text>
+                                    <Text className="text-[10px] leading-relaxed" style={{ color: colors.textTertiary }}>
+                                        Raw coordinates are smoothed locally using Kalman filters to remove jumpy coordinate noise and protect precise track lines.
+                                    </Text>
+                                </View>
+
+                                <View className="mb-3">
+                                    <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>Geofence Protections</Text>
+                                    <Text className="text-[10px] leading-relaxed" style={{ color: colors.textTertiary }}>
+                                        Circular geofences automatically aggregate spatial data, preventing raw coordinate exposures near sensitive addresses.
+                                    </Text>
+                                </View>
+
+                                <View className="mb-3">
+                                    <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>Full Data Ownership</Text>
+                                    <Text className="text-[10px] leading-relaxed" style={{ color: colors.textTertiary }}>
+                                        You have the absolute right to download your telemetry logs or purge them instantly from the Diagnostics & Storage panel.
+                                    </Text>
+                                </View>
+                            </ScrollView>
+
+                            <Pressable
+                                onPress={() => setShowPrivacyModal(false)}
+                                className="mt-4 rounded-2xl py-3 items-center active:opacity-85"
+                                style={{ backgroundColor: colors.isDark ? '#1e293b' : 'rgba(15,23,42,0.06)' }}
+                            >
+                                <Text className="text-xs font-black uppercase tracking-wider" style={{ color: colors.textPrimary }}>
+                                    Dismiss
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* ── Help & Support Modal ── */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={showHelpModal}
+                    onRequestClose={() => setShowHelpModal(false)}
+                >
+                    <View className="flex-1 items-center justify-center bg-black/60 px-6">
+                        <View 
+                            className="w-full max-w-[380px] overflow-hidden rounded-[32px] border p-6 shadow-2xl"
+                            style={{ backgroundColor: isDark ? '#0f172a' : '#ffffff', borderColor: colors.cardBorder }}
+                        >
+                            <View className="flex-row items-center justify-between border-b pb-4 mb-4" style={{ borderBottomColor: colors.cardBorder }}>
+                                <View className="flex-row items-center">
+                                    <Ionicons name="help-circle-outline" size={20} color="#fbbf24" />
+                                    <Text className="ml-2 text-base font-black tracking-tight" style={{ color: colors.textPrimary }}>
+                                        Help & Support
+                                    </Text>
+                                </View>
+                                <Pressable onPress={() => setShowHelpModal(false)} hitSlop={8}>
+                                    <Ionicons name="close-outline" size={22} color={colors.textSecondary} />
+                                </Pressable>
+                            </View>
+
+                            <ScrollView showsVerticalScrollIndicator={false} className="max-h-[300px]">
+                                <View className="mb-3">
+                                    <Text className="text-xs font-bold text-emerald-400" style={{ color: colors.productivityText }}>Q: How does tracking work?</Text>
+                                    <Text className="text-[10px] leading-relaxed mt-0.5" style={{ color: colors.textTertiary }}>
+                                        The app combines GPS hardware updates, pedometer step cadence, and Kalman filter smoothers to log your spatial routines.
+                                    </Text>
+                                </View>
+
+                                <View className="mb-3">
+                                    <Text className="text-xs font-bold text-emerald-400" style={{ color: colors.productivityText }}>Q: How accurate is it?</Text>
+                                    <Text className="text-[10px] leading-relaxed mt-0.5" style={{ color: colors.textTertiary }}>
+                                        High Accuracy Mode polls the satellite receiver every 10 seconds. Geofence dwell detection triggers when you stay within a 20-meter radius for over 3 minutes.
+                                    </Text>
+                                </View>
+
+                                <View className="mb-3">
+                                    <Text className="text-xs font-bold text-emerald-400" style={{ color: colors.productivityText }}>Q: Does it drain battery?</Text>
+                                    <Text className="text-[10px] leading-relaxed mt-0.5" style={{ color: colors.textTertiary }}>
+                                        Adaptive background tracking automatically toggles low-power intervals when you are stationary or when your battery level drops below 20%.
+                                    </Text>
+                                </View>
+                            </ScrollView>
+
+                            <Pressable
+                                onPress={() => setShowHelpModal(false)}
+                                className="mt-4 rounded-2xl py-3 items-center active:opacity-85"
+                                style={{ backgroundColor: colors.isDark ? '#1e293b' : 'rgba(15,23,42,0.06)' }}
+                            >
+                                <Text className="text-xs font-black uppercase tracking-wider" style={{ color: colors.textPrimary }}>
+                                    Dismiss
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* ── Terms of Service Modal ── */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={showTermsModal}
+                    onRequestClose={() => setShowTermsModal(false)}
+                >
+                    <View className="flex-1 items-center justify-center bg-black/60 px-6">
+                        <View 
+                            className="w-full max-w-[380px] overflow-hidden rounded-[32px] border p-6 shadow-2xl"
+                            style={{ backgroundColor: isDark ? '#0f172a' : '#ffffff', borderColor: colors.cardBorder }}
+                        >
+                            <View className="flex-row items-center justify-between border-b pb-4 mb-4" style={{ borderBottomColor: colors.cardBorder }}>
+                                <View className="flex-row items-center">
+                                    <Ionicons name="document-text-outline" size={20} color="#a78bfa" />
+                                    <Text className="ml-2 text-base font-black tracking-tight" style={{ color: colors.textPrimary }}>
+                                        Terms of Service
+                                    </Text>
+                                </View>
+                                <Pressable onPress={() => setShowTermsModal(false)} hitSlop={8}>
+                                    <Ionicons name="close-outline" size={22} color={colors.textSecondary} />
+                                </Pressable>
+                            </View>
+
+                            <ScrollView showsVerticalScrollIndicator={false} className="max-h-[300px]">
+                                <Text className="text-[10px] leading-relaxed" style={{ color: colors.textTertiary }}>
+                                    By using GPS Tracks, you authorize the logging of geographic telemetry metrics on this device. Data collection is governed by a local-first privacy policy.
+                                    {"\n\n"}
+                                    1. Telemetry logs are stored locally. Syncing to the cloud is optional and secure.
+                                    {"\n\n"}
+                                    2. You retain full copyright and ownership of all location files, logs, and metadata.
+                                    {"\n\n"}
+                                    3. We do not sell, distribute, or share your tracking logs with third-party networks.
+                                    {"\n\n"}
+                                    4. You are solely responsible for checking your local laws regarding background location tracking.
+                                </Text>
+                            </ScrollView>
+
+                            <Pressable
+                                onPress={() => setShowTermsModal(false)}
+                                className="mt-4 rounded-2xl py-3 items-center active:opacity-85"
+                                style={{ backgroundColor: colors.isDark ? '#1e293b' : 'rgba(15,23,42,0.06)' }}
+                            >
+                                <Text className="text-xs font-black uppercase tracking-wider" style={{ color: colors.textPrimary }}>
+                                    Dismiss Terms
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </Modal>
             </ScrollView>
         </LinearGradient>
     );
 }
+

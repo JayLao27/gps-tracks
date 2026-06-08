@@ -13,7 +13,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Modal, Alert } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-import { type Track, deleteTrack } from '@/services/database';
+import { type Track, deleteTrack, updateTrack } from '@/services/database';
+
 
 const filters = ['All', 'This Week', 'This Month'];
 const typeFilters = ['All Types', 'Walks', 'Runs', 'Rides'];
@@ -26,6 +27,44 @@ export default function Activity() {
     const { colors, isDark } = useTheme();
     const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+
+    const [editedName, setEditedName] = useState('');
+    const [editedDescription, setEditedDescription] = useState('');
+    const [isSavingTrack, setIsSavingTrack] = useState(false);
+
+    const handleSelectTrack = (track: Track) => {
+        setSelectedTrack(track);
+        setEditedName(track.name);
+        setEditedDescription(track.description || '');
+    };
+
+    const handleSaveTrackUpdates = async () => {
+        if (!selectedTrack) return;
+        if (!editedName.trim()) {
+            Alert.alert("Error", "Track name cannot be empty.");
+            return;
+        }
+
+        setIsSavingTrack(true);
+        try {
+            const success = await updateTrack(selectedTrack.id, {
+                name: editedName.trim(),
+                description: editedDescription.trim(),
+            });
+
+            if (success) {
+                setSelectedTrack((prev) => prev ? { ...prev, name: editedName.trim(), description: editedDescription.trim() } : null);
+                refresh();
+                Alert.alert("Success", "Track metadata updated successfully.");
+            } else {
+                Alert.alert("Error", "Failed to update track metadata.");
+            }
+        } catch {
+            Alert.alert("Error", "An unexpected error occurred.");
+        } finally {
+            setIsSavingTrack(false);
+        }
+    };
 
     const handleDeleteTrack = async (trackId: string) => {
         Alert.alert(
@@ -264,7 +303,8 @@ export default function Activity() {
                             return (
                                 <Pressable
                                     key={track.id}
-                                    onPress={() => setSelectedTrack(track)}
+                                    onPress={() => handleSelectTrack(track)}
+
                                     style={{
                                         backgroundColor: colors.cardBg,
                                         borderColor: trackColor + '40',
@@ -526,6 +566,67 @@ export default function Activity() {
                                                 <Text className="text-lg font-black" style={{ color: colors.textPrimary }}>{estimatedStepsCount.toLocaleString()} steps</Text>
                                             </View>
                                         )}
+                                    </View>
+
+                                    {/* Metadata / Workout Save Details Editor */}
+                                    <View className="mt-5 border-t pt-4" style={{ borderTopColor: colors.cardBorder }}>
+                                        <Text className="mb-2 text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textTertiary }}>
+                                            Workout Details & Tags
+                                        </Text>
+                                        
+                                        {/* Edit Name */}
+                                        <View className="mb-3">
+                                            <Text className="mb-1 text-[9px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
+                                                Track Name
+                                            </Text>
+                                            <TextInput
+                                                className="rounded-xl border px-3 py-2 text-xs font-semibold"
+                                                style={{ 
+                                                    color: colors.textPrimary,
+                                                    backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(15,23,42,0.02)',
+                                                    borderColor: colors.cardBorder
+                                                }}
+                                                value={editedName}
+                                                onChangeText={setEditedName}
+                                                placeholder="Track Name"
+                                                placeholderTextColor="#475569"
+                                            />
+                                        </View>
+
+                                        {/* Edit Description */}
+                                        <View className="mb-4">
+                                            <Text className="mb-1 text-[9px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
+                                                Description / Notes / Tags
+                                            </Text>
+                                            <TextInput
+                                                className="rounded-xl border px-3 py-2 text-xs font-semibold"
+                                                style={{ 
+                                                    color: colors.textPrimary,
+                                                    backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(15,23,42,0.02)',
+                                                    borderColor: colors.cardBorder,
+                                                    minHeight: 50
+                                                }}
+                                                value={editedDescription}
+                                                onChangeText={setEditedDescription}
+                                                placeholder="Add workout details or tag locations (e.g. #cardio, #morning-run)..."
+                                                placeholderTextColor="#475569"
+                                                multiline
+                                            />
+                                        </View>
+
+                                        <Pressable
+                                            onPress={handleSaveTrackUpdates}
+                                            disabled={isSavingTrack}
+                                            className="rounded-xl py-3 items-center justify-center bg-emerald-500 active:opacity-90 shadow-sm"
+                                        >
+                                            {isSavingTrack ? (
+                                                <ActivityIndicator size="small" color="#fff" />
+                                            ) : (
+                                                <Text className="text-xs font-black uppercase tracking-wider text-white">
+                                                    Save Metadata
+                                                </Text>
+                                            )}
+                                        </Pressable>
                                     </View>
 
                                     {/* Action Buttons */}

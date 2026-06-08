@@ -151,3 +151,68 @@ export function shouldDiscardPing(
 
     return false;
 }
+
+/**
+ * Simplifies a list of coordinates using the Ramer-Douglas-Peucker (RDP) algorithm.
+ * 
+ * @param points Array of coordinates.
+ * @param epsilonMeters Distance threshold in meters.
+ */
+export function compressRouteRDP<T extends { latitude: number; longitude: number }>(
+    points: T[],
+    epsilonMeters: number
+): T[] {
+    if (points.length <= 2) {
+        return points;
+    }
+
+    let dmax = 0;
+    let index = 0;
+    const end = points.length - 1;
+
+    for (let i = 1; i < end; i++) {
+        const d = perpendicularDistanceMeters(points[i], points[0], points[end]);
+        if (d > dmax) {
+            index = i;
+            dmax = d;
+        }
+    }
+
+    if (dmax > epsilonMeters) {
+        const results1 = compressRouteRDP(points.slice(0, index + 1), epsilonMeters);
+        const results2 = compressRouteRDP(points.slice(index), epsilonMeters);
+        return results1.slice(0, results1.length - 1).concat(results2);
+    } else {
+        return [points[0], points[end]];
+    }
+}
+
+function perpendicularDistanceMeters<T extends { latitude: number; longitude: number }>(
+    p: T,
+    p1: T,
+    p2: T
+): number {
+    const latRad = (p.latitude * Math.PI) / 180;
+    const R = 6371000; // Earth radius in meters
+    
+    const getX = (pt: T) => pt.longitude * Math.PI / 180 * R * Math.cos(latRad);
+    const getY = (pt: T) => pt.latitude * Math.PI / 180 * R;
+
+    const px = getX(p);
+    const py = getY(p);
+    const p1x = getX(p1);
+    const p1y = getY(p1);
+    const p2x = getX(p2);
+    const p2y = getY(p2);
+
+    const dx = p2x - p1x;
+    const dy = p2y - p1y;
+    
+    const denom = Math.sqrt(dx * dx + dy * dy);
+    if (denom === 0) {
+        return haversineDistanceMeters(p.latitude, p.longitude, p1.latitude, p1.longitude);
+    }
+
+    return Math.abs(dy * px - dx * py + p2x * p1y - p2y * p1x) / denom;
+}
+

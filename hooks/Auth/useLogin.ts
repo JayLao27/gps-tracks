@@ -17,7 +17,13 @@ export function useLogin() {
     const [error, setError] = useState('');
 
     const handleSubmit = async () => {
-        const success = await loginUser(email, password);
+        const sanitizedEmail = email.trim().toLowerCase();
+        if (!sanitizedEmail) {
+            setError('Email is required');
+            return;
+        }
+
+        const success = await loginUser(sanitizedEmail, password);
 
         if (success) {
             setError('');

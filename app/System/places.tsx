@@ -22,6 +22,7 @@ import {
     Text,
     TextInput,
     View,
+    Platform,
 } from 'react-native';
 
 const categories: LocationCategory[] = [
@@ -122,12 +123,32 @@ export default function Places() {
         loadSuggestions();
     }, [places]);
 
-    const handleApplySuggestion = (suggestion: SuggestedPlace) => {
-        setName(`AI Custom Spot ${places.length + 1}`);
+    const handleApplySuggestion = async (suggestion: SuggestedPlace) => {
         setLatitude(suggestion.latitude.toFixed(6));
         setLongitude(suggestion.longitude.toFixed(6));
         setRadiusMeters('200');
         setCategory(suggestion.category);
+
+        try {
+            if (Platform.OS !== 'web') {
+                const geo = await Location.reverseGeocodeAsync({
+                    latitude: suggestion.latitude,
+                    longitude: suggestion.longitude,
+                });
+                if (geo && geo.length > 0) {
+                    const first = geo[0];
+                    const street = first.street || first.name || '';
+                    const city = first.city || '';
+                    setName(street ? `${street}, ${city}` : (city || `AI Spot ${places.length + 1}`));
+                } else {
+                    setName(`AI Spot ${places.length + 1}`);
+                }
+            } else {
+                setName(`AI Custom Spot ${places.length + 1}`);
+            }
+        } catch {
+            setName(`AI Custom Spot ${places.length + 1}`);
+        }
     };
 
     const handleUseCurrentGps = async () => {
@@ -146,8 +167,28 @@ export default function Places() {
                 accuracy: Location.Accuracy.Balanced,
             });
 
-            setLatitude(current.coords.latitude.toFixed(6));
-            setLongitude(current.coords.longitude.toFixed(6));
+            const lat = current.coords.latitude;
+            const lon = current.coords.longitude;
+            setLatitude(lat.toFixed(6));
+            setLongitude(lon.toFixed(6));
+
+            try {
+                if (Platform.OS !== 'web') {
+                    const geo = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+                    if (geo && geo.length > 0) {
+                        const first = geo[0];
+                        const street = first.street || first.name || '';
+                        const city = first.city || '';
+                        setName(street ? `${street}, ${city}` : (city || `Spot ${places.length + 1}`));
+                    } else {
+                        setName(`Spot ${places.length + 1}`);
+                    }
+                } else {
+                    setName(`Web Spot ${places.length + 1}`);
+                }
+            } catch {
+                setName(`Spot ${places.length + 1}`);
+            }
         } catch (e: unknown) {
             setGpsError(
                 e instanceof Error ? e.message : 'Unable to get current location.'

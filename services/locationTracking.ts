@@ -11,7 +11,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { AppState } from 'react-native';
 
-import { KalmanFilter, shouldDiscardPing } from '../utils/locationFilter';
+import { KalmanFilter, shouldDiscardPing, compressRouteRDP } from '../utils/locationFilter';
+
 import { getEffectiveKnownPlaces, syncOfflineKnownPlaces } from './knownPlaces';
 import type { LocationCategory, LocationVisit } from './locationIntelligence';
 import { supabase } from './supabase';
@@ -157,7 +158,8 @@ export async function syncOfflineData(): Promise<void> {
 
         const locations = await readLocalLocations();
         if (locations.length > 0) {
-            const rowsToInsert = locations.map((l) => ({
+            const compressed = compressRouteRDP(locations, 8);
+            const rowsToInsert = compressed.map((l) => ({
                 user_id: userId,
                 latitude: l.latitude,
                 longitude: l.longitude,
@@ -169,6 +171,7 @@ export async function syncOfflineData(): Promise<void> {
                 await writeLocalLocations([]);
             }
         }
+
 
         const visits = await readLocalVisits();
         if (visits.length > 0) {

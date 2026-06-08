@@ -8,9 +8,26 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import * as Location from 'expo-location';
 
 import type { LocationCategory } from './locationIntelligence';
 import { supabase } from './supabase';
+
+function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000;
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) *
+            Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
 
 export interface KnownPlace {
     id: string;
@@ -162,19 +179,48 @@ export async function addKnownPlace(
     const userId = await getCurrentUserId();
     const id = `${userId ?? 'anon'}-${Date.now()}`;
 
+    // Overlap detection
+    const existingPlaces = await getEffectiveKnownPlaces();
+    for (const p of existingPlaces) {
+        const dist = distanceMeters(input.latitude, input.longitude, p.latitude, p.longitude);
+        const combinedRadius = (input.radiusMeters || 200) + (p.radiusMeters || 200);
+        if (dist < combinedRadius) {
+            throw new Error(`This location overlaps with geofence "${p.name}" (Distance: ${Math.round(dist)}m).`);
+        }
+    }
+
+    let nameToUse = input.name.trim();
+    if (!nameToUse) {
+        try {
+            if (Platform.OS !== 'web') {
+                const geo = await Location.reverseGeocodeAsync({
+                    latitude: input.latitude,
+                    longitude: input.longitude,
+                });
+                if (geo && geo.length > 0) {
+                    const first = geo[0];
+                    const street = first.street || first.name || '';
+                    const city = first.city || '';
+                    nameToUse = street ? `${street}, ${city}` : (city || 'Custom Spot');
+                }
+            }
+        } catch (e) {
+            console.error('Reverse geocoding failed:', e);
+        }
+        if (!nameToUse) {
+            nameToUse = `Spot (${input.latitude.toFixed(4)}, ${input.longitude.toFixed(4)})`;
+        }
+    }
+
     const place: KnownPlace = {
         id,
         userId,
-        name: input.name.trim(),
+        name: nameToUse,
         category: input.category,
         latitude: input.latitude,
         longitude: input.longitude,
         radiusMeters: input.radiusMeters,
     };
-
-    if (!place.name) {
-        throw new Error('Place name is required.');
-    }
 
     if (!userId) {
         const existing = await readLocalKnownPlaces();

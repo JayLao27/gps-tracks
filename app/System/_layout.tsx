@@ -7,11 +7,16 @@
  * ============================================================================
  */
 
+import { useEffect } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { ThemeProvider, useTheme } from '@/hooks/useTheme';
+import { validateSessionLifecycle } from '@/services/authService';
 
 function TabsLayout() {
+
     const { colors } = useTheme();
 
     return (
@@ -87,9 +92,38 @@ function TabsLayout() {
 }
 
 export default function SystemLayout() {
+    const router = useRouter();
+
+    useEffect(() => {
+        let active = true;
+
+        const checkSession = async () => {
+            const isValid = await validateSessionLifecycle();
+            if (!isValid && active) {
+                router.replace('/Authentication/login');
+            }
+        };
+
+        checkSession();
+
+        const handleAppStateChange = (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'active') {
+                checkSession();
+            }
+        };
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+        return () => {
+            active = false;
+            subscription.remove();
+        };
+    }, [router]);
+
     return (
         <ThemeProvider>
             <TabsLayout />
         </ThemeProvider>
     );
 }
+

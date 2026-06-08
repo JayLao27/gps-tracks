@@ -101,4 +101,27 @@ export const logoutUser = async (): Promise<void> => {
     await supabase.auth.signOut();
 };
 
+export const updateUserProfile = async (name: string): Promise<string | null> => {
+    const { error } = await supabase.auth.updateUser({
+        data: { name: name.trim() }
+    });
+    if (error) return error.message;
+    return null;
+};
+
+export const validateSessionLifecycle = async (): Promise<boolean> => {
+    try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session) return false;
+
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) return false;
+
+        return true;
+    } catch {
+        return false;
+    }
+};
+
 export type { User } from './database';
+

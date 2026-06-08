@@ -49,7 +49,9 @@ export interface Track {
     icon: string;
     color: string;
     created_at: string;
+    description?: string;
 }
+
 
 
 export function mapAuthUser(authUser: {
@@ -176,4 +178,33 @@ export async function deleteTrack(trackId: string): Promise<boolean> {
 
     return true;
 }
+
+export async function updateTrack(trackId: string, updates: Partial<Track>): Promise<boolean> {
+    if (trackId.startsWith('offline-')) {
+        try {
+            const existing = await readLocalOfflineTracks();
+            const next = existing.map((t) => (t.id === trackId ? { ...t, ...updates } : t));
+            await writeLocalOfflineTracks(next);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    const { error } = await supabase
+        .from('tracks')
+        .update({
+            name: updates.name,
+            description: updates.description,
+        })
+        .eq('id', trackId);
+
+    if (error) {
+        console.error('Error updating track:', error);
+        return false;
+    }
+
+    return true;
+}
+
 
