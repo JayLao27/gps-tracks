@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import MapView, { PROVIDER_DEFAULT, Marker } from 'react-native-maps';
 
 function getGreeting(): string {
     const h = new Date().getHours();
@@ -225,9 +226,27 @@ export default function Dashboard() {
                                         </Text>
 
                                         {!!lastPing && (
-                                            <Text className="mt-1 text-[10px]" style={{ color: colors.textTertiary }}>
-                                                ({lastPing.latitude.toFixed(4)}, {lastPing.longitude.toFixed(4)})
-                                            </Text>
+                                            <View className="mt-3 h-32 w-full overflow-hidden rounded-xl border shadow-sm" style={{ borderColor: colors.cardBorder }}>
+                                                <MapView
+                                                    provider={PROVIDER_DEFAULT}
+                                                    style={{ flex: 1 }}
+                                                    region={{
+                                                        latitude: lastPing.latitude,
+                                                        longitude: lastPing.longitude,
+                                                        latitudeDelta: 0.005,
+                                                        longitudeDelta: 0.005,
+                                                    }}
+                                                    userInterfaceStyle={isDark ? 'dark' : 'light'}
+                                                    scrollEnabled={false}
+                                                    zoomEnabled={false}
+                                                >
+                                                    <Marker
+                                                        coordinate={{ latitude: lastPing.latitude, longitude: lastPing.longitude }}
+                                                    >
+                                                        <View className="h-4 w-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" />
+                                                    </Marker>
+                                                </MapView>
+                                            </View>
                                         )}
 
                                         <View className="mt-4 flex-row items-center justify-between border-t pt-3" style={{ borderTopColor: colors.cardBorder }}>

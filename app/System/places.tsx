@@ -24,6 +24,7 @@ import {
     View,
     Platform,
 } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 
 const categories: LocationCategory[] = [
     'home',
@@ -457,6 +458,39 @@ export default function Places() {
                     <Text className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textTertiary }}>
                         Registered Places Geofences
                     </Text>
+
+                    {places.length > 0 && !loading && (
+                        <View className="mb-4 h-48 w-full overflow-hidden rounded-2xl border shadow-sm" style={{ borderColor: colors.cardBorder }}>
+                            <MapView
+                                provider={PROVIDER_DEFAULT}
+                                style={{ flex: 1 }}
+                                initialRegion={{
+                                    latitude: places[0].latitude,
+                                    longitude: places[0].longitude,
+                                    latitudeDelta: 0.1,
+                                    longitudeDelta: 0.1,
+                                }}
+                                userInterfaceStyle={isDark ? 'dark' : 'light'}
+                            >
+                                {places.map((place) => {
+                                    const catIcon = categoryStyles[place.category]?.icon || categoryStyles.other.icon;
+                                    const styleMode = isDark ? (categoryStyles[place.category]?.dark || categoryStyles.other.dark) : (categoryStyles[place.category]?.light || categoryStyles.other.light);
+                                    return (
+                                        <Marker
+                                            key={place.id}
+                                            coordinate={{ latitude: place.latitude, longitude: place.longitude }}
+                                            title={place.name}
+                                            description={place.category}
+                                        >
+                                            <View className="h-6 w-6 rounded-full items-center justify-center border shadow-md" style={{ backgroundColor: styleMode.bg, borderColor: styleMode.border }}>
+                                                <Ionicons name={catIcon as any} size={10} color={styleMode.text} />
+                                            </View>
+                                        </Marker>
+                                    );
+                                })}
+                            </MapView>
+                        </View>
+                    )}
 
                     {loading ? (
                         <View className="py-6 justify-center">
