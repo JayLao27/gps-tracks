@@ -400,9 +400,17 @@ export default function Dashboard() {
 
                 {/* Smart Insights */}
                 <View className="px-6 pt-6">
-                    <Text className="mb-3 text-sm font-bold uppercase tracking-widest" style={{ color: colors.textSecondary }}>
-                        Smart Insights
-                    </Text>
+                    <View className="mb-3 flex-row items-center justify-between">
+                        <Text className="text-sm font-bold uppercase tracking-widest" style={{ color: colors.textSecondary }}>
+                            Smart Insights
+                        </Text>
+                        <Pressable onPress={() => router.push('/System/achievements')} className="flex-row items-center bg-amber-500/10 rounded-full px-2.5 py-1 border border-amber-500/20">
+                            <Ionicons name="trophy" size={10} color="#f59e0b" />
+                            <Text className="ml-1 text-[9px] font-extrabold uppercase tracking-wider" style={{ color: '#f59e0b' }}>
+                                Trophy Room
+                            </Text>
+                        </Pressable>
+                    </View>
                     <View 
                         className="mb-3 rounded-2xl border p-4 flex-row items-center justify-between"
                         style={{ backgroundColor: colors.productivityBg, borderColor: colors.productivityBorder }}
