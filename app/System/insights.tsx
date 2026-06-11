@@ -14,10 +14,12 @@ import { type LocationCategory } from '@/services/locationIntelligence';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View, Alert } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import * as Speech from 'expo-speech';
 import MapView, { Heatmap, PROVIDER_DEFAULT } from 'react-native-maps';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 function getPersonaColor(persona: CoachPersona): string {
     switch (persona) {
@@ -101,6 +103,50 @@ export default function Insights() {
         }
     }, [messages.length, chatLoading, chatOpen]);
 
+    const generateAndSharePDF = async () => {
+        try {
+            const html = `
+                <html>
+                <body style="font-family: sans-serif; padding: 40px; color: #111827;">
+                    <h1 style="color: #4f46e5;">GPS Tracks: Intelligence Report</h1>
+                    <p style="color: #6b7280;">Generated on ${new Date().toLocaleString()}</p>
+                    <hr style="border: 1px solid #e5e7eb; margin: 20px 0;" />
+                    
+                    <h2 style="color: #10b981;">Productivity Score: ${report.productivity.score} / 100</h2>
+                    <p>Non-productive spatial window: ${report.productivity.nonProductivePercent}%</p>
+                    <p>Best Focus Window: ${report.productivity.bestWindow}</p>
+
+                    <h2>AI Coach Narrative</h2>
+                    <p style="font-style: italic; background: #f3f4f6; padding: 15px; border-radius: 8px;">"${aiInsight.narrative}"</p>
+                    <p><strong>Focus Strategy:</strong> ${aiInsight.focusRecommendation}</p>
+                    <p><strong>Circadian Sync:</strong> ${aiInsight.routineRecommendation}</p>
+
+                    <h2>Recent Safety Anomalies</h2>
+                    <ul>
+                        ${report.anomalies.map((a: any) => `<li>${a.message}</li>`).join('') || '<li>None detected.</li>'}
+                    </ul>
+
+                    <h2>Goal Status</h2>
+                    <ul>
+                        ${report.goalStatuses.map((g: any) => `<li><strong>${g.goal.title}</strong>: ${g.alert || 'On track'}</li>`).join('')}
+                    </ul>
+                </body>
+                </html>
+            `;
+
+            const { uri } = await Print.printToFileAsync({ html });
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+            } else {
+                Alert.alert('Not Supported', 'Sharing is not available on this platform.');
+            }
+        } catch (error) {
+            console.error('Failed to generate PDF:', error);
+            Alert.alert('Export Failed', 'Could not generate the PDF report.');
+        }
+    };
+
+
     return (
         <LinearGradient
             colors={colors.bgGradient}
@@ -123,15 +169,27 @@ export default function Insights() {
                         <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
                             Source: {source === 'live' ? 'Live tracked data' : 'Demo fallback data'}
                         </Text>
-                        <Pressable
-                            onPress={refresh}
-                            className="rounded-lg border px-2.5 py-1"
-                            style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.03)', borderColor: colors.cardBorder }}
-                        >
-                            <Text className="text-[10px] font-bold" style={{ color: colors.textSecondary }}>
-                                {loading ? 'Refreshing...' : 'Force Refresh'}
-                            </Text>
-                        </Pressable>
+                        <View className="flex-row items-center gap-2">
+                            <Pressable
+                                onPress={generateAndSharePDF}
+                                className="flex-row items-center rounded-lg border px-2.5 py-1"
+                                style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', borderColor: 'rgba(99, 102, 241, 0.2)' }}
+                            >
+                                <Ionicons name="document-text-outline" size={10} color="#6366f1" />
+                                <Text className="ml-1 text-[10px] font-bold" style={{ color: '#6366f1' }}>
+                                    Export PDF
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={refresh}
+                                className="rounded-lg border px-2.5 py-1"
+                                style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.03)', borderColor: colors.cardBorder }}
+                            >
+                                <Text className="text-[10px] font-bold" style={{ color: colors.textSecondary }}>
+                                    {loading ? 'Refreshing...' : 'Force Refresh'}
+                                </Text>
+                            </Pressable>
+                        </View>
                     </View>
                 </View>
 
