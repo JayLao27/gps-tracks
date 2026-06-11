@@ -404,12 +404,20 @@ export default function Dashboard() {
                         <Text className="text-sm font-bold uppercase tracking-widest" style={{ color: colors.textSecondary }}>
                             Smart Insights
                         </Text>
-                        <Pressable onPress={() => router.push('/System/achievements')} className="flex-row items-center bg-amber-500/10 rounded-full px-2.5 py-1 border border-amber-500/20">
-                            <Ionicons name="trophy" size={10} color="#f59e0b" />
-                            <Text className="ml-1 text-[9px] font-extrabold uppercase tracking-wider" style={{ color: '#f59e0b' }}>
-                                Trophy Room
-                            </Text>
-                        </Pressable>
+                        <View className="flex-row items-center gap-1.5">
+                            <Pressable onPress={() => router.push('/System/social')} className="flex-row items-center bg-violet-500/10 rounded-full px-2.5 py-1 border border-violet-500/20">
+                                <Ionicons name="people" size={10} color="#8b5cf6" />
+                                <Text className="ml-1 text-[9px] font-extrabold uppercase tracking-wider" style={{ color: '#8b5cf6' }}>
+                                    Leaderboard
+                                </Text>
+                            </Pressable>
+                            <Pressable onPress={() => router.push('/System/achievements')} className="flex-row items-center bg-amber-500/10 rounded-full px-2.5 py-1 border border-amber-500/20">
+                                <Ionicons name="trophy" size={10} color="#f59e0b" />
+                                <Text className="ml-1 text-[9px] font-extrabold uppercase tracking-wider" style={{ color: '#f59e0b' }}>
+                                    Trophies
+                                </Text>
+                            </Pressable>
+                        </View>
                     </View>
                     <View 
                         className="mb-3 rounded-2xl border p-4 flex-row items-center justify-between"
