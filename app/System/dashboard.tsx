@@ -17,8 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, Alert } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, Marker } from 'react-native-maps';
+import * as SMS from 'expo-sms';
 
 function getGreeting(): string {
     const h = new Date().getHours();
@@ -126,6 +127,19 @@ export default function Dashboard() {
             icon: (t.icon || 'walk-outline') as any,
         };
     });
+
+    const handleSOS = async () => {
+        const isAvailable = await SMS.isAvailableAsync();
+        if (isAvailable) {
+            const locationText = lastPing ? `Lat: ${lastPing.latitude.toFixed(5)}, Lon: ${lastPing.longitude.toFixed(5)}` : "Unknown Location";
+            await SMS.sendSMSAsync(
+                [],
+                `SOS Safety Alert from GPS Tracks! I need assistance. My current location is ${locationText}.`
+            );
+        } else {
+            Alert.alert("SMS Unavailable", "Your device does not support sending SMS messages.");
+        }
+    };
 
     return (
         <LinearGradient
@@ -346,6 +360,15 @@ export default function Dashboard() {
                                         />
                                         <Text className="ml-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: colors.textSecondary }}>
                                             {isBackgroundTracking ? 'Stop BG GPS' : 'Background GPS'}
+                                        </Text>
+                                    </Pressable>
+                                    <Pressable
+                                        onPress={handleSOS}
+                                        className="flex-row items-center rounded-xl px-4 py-3 bg-red-500/10 active:bg-red-500/20 border border-red-500/30"
+                                    >
+                                        <Ionicons name="warning-outline" size={14} color="#ef4444" />
+                                        <Text className="ml-1.5 text-xs font-bold uppercase tracking-wider text-red-500">
+                                            SOS Alert
                                         </Text>
                                     </Pressable>
                                 </View>
