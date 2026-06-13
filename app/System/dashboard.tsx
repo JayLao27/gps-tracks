@@ -362,6 +362,19 @@ export default function Dashboard() {
                                             {isBackgroundTracking ? 'Stop BG GPS' : 'Background GPS'}
                                         </Text>
                                     </Pressable>
+                                    
+                                    {isTracking && (
+                                        <Pressable
+                                            onPress={() => router.push('/System/hud')}
+                                            className="flex-row items-center rounded-xl px-4 py-3 bg-black active:bg-slate-900 border border-slate-800"
+                                        >
+                                            <Ionicons name="speedometer-outline" size={14} color="#34d399" />
+                                            <Text className="ml-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                                                HUD Mode
+                                            </Text>
+                                        </Pressable>
+                                    )}
+                                    
                                     <Pressable
                                         onPress={handleSOS}
                                         className="flex-row items-center rounded-xl px-4 py-3 bg-red-500/10 active:bg-red-500/20 border border-red-500/30"
