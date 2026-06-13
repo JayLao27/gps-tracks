@@ -7,19 +7,19 @@
  * ============================================================================
  */
 
+import MapView, { Heatmap, PROVIDER_DEFAULT } from '@/components/Map';
 import { useIntelligenceChat } from '@/hooks/useIntelligenceChat';
 import { useIntelligenceReport, type CoachPersona } from '@/hooks/useIntelligenceReport';
 import { useTheme } from '@/hooks/useTheme';
 import { type LocationCategory } from '@/services/locationIntelligence';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View, Alert } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
-import * as Speech from 'expo-speech';
-import MapView, { Heatmap, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as Speech from 'expo-speech';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { BarChart } from 'react-native-gifted-charts';
 
 function getPersonaColor(persona: CoachPersona): string {
     switch (persona) {

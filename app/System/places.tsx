@@ -7,6 +7,7 @@
  * ============================================================================
  */
 
+import MapView, { Marker, PROVIDER_DEFAULT } from '@/components/Map';
 import { useKnownPlaces } from '@/hooks/useKnownPlaces';
 import { useTheme } from '@/hooks/useTheme';
 import { suggestPlacesFromPings, type LocationCategory, type SuggestedPlace } from '@/services/locationIntelligence';
@@ -17,14 +18,13 @@ import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Platform,
     Pressable,
     ScrollView,
     Text,
     TextInput,
     View,
-    Platform,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 
 const categories: LocationCategory[] = [
     'home',
