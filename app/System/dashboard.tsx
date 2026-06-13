@@ -7,6 +7,7 @@
  * ============================================================================
  */
 
+import MapView, { Marker, PROVIDER_DEFAULT } from '@/components/Map';
 import { useIntelligenceReport } from '@/hooks/useIntelligenceReport';
 import { useLocationTracker } from '@/hooks/useLocationTracker';
 import { useTheme } from '@/hooks/useTheme';
@@ -16,10 +17,9 @@ import { type User } from '@/services/database';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View, Alert } from 'react-native';
-import MapView, { PROVIDER_DEFAULT, Marker } from 'react-native-maps';
 import * as SMS from 'expo-sms';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
 function getGreeting(): string {
     const h = new Date().getHours();
@@ -362,19 +362,6 @@ export default function Dashboard() {
                                             {isBackgroundTracking ? 'Stop BG GPS' : 'Background GPS'}
                                         </Text>
                                     </Pressable>
-                                    
-                                    {isTracking && (
-                                        <Pressable
-                                            onPress={() => router.push('/System/hud')}
-                                            className="flex-row items-center rounded-xl px-4 py-3 bg-black active:bg-slate-900 border border-slate-800"
-                                        >
-                                            <Ionicons name="speedometer-outline" size={14} color="#34d399" />
-                                            <Text className="ml-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
-                                                HUD Mode
-                                            </Text>
-                                        </Pressable>
-                                    )}
-                                    
                                     <Pressable
                                         onPress={handleSOS}
                                         className="flex-row items-center rounded-xl px-4 py-3 bg-red-500/10 active:bg-red-500/20 border border-red-500/30"
